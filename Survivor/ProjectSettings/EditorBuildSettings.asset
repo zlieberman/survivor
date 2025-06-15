@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/MainMenu.unity
+    guid: 6530cdd653ede404a9f6dea77f88a78a
+  - enabled: 1
+    path: Assets/Scenes/TropicalIsland.unity
+    guid: 216efda3d63834a95b184f70566c361f
+  - enabled: 1
+    path: Assets/Scenes/ChallengesMenu.unity
+    guid: 9e009b07f722e41d58f0480fe5e82361
+  m_configObjects: {}
