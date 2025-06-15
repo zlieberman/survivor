@@ -32,12 +32,33 @@ namespace Survivor.Tribes
         public bool IsInChallenge = false;
         public Dictionary<string, float> Relationships = new Dictionary<string, float>();
 
+        private NameTag nameTag;
+
         private void Awake()
         {
             // Initialize relationships dictionary if needed
             if (Relationships == null)
             {
                 Relationships = new Dictionary<string, float>();
+            }
+
+            // Create name tag
+            CreateNameTag();
+        }
+
+        private void CreateNameTag()
+        {
+            // Create name tag object
+            GameObject nameTagObj = new GameObject("NameTag");
+            nameTagObj.transform.SetParent(transform);
+            nameTagObj.transform.localPosition = Vector3.zero;
+            nameTagObj.transform.localRotation = Quaternion.identity;
+            nameTag = nameTagObj.AddComponent<NameTag>();
+
+            // If we already have a name, set it
+            if (!string.IsNullOrEmpty(memberName))
+            {
+                nameTag.SetName(memberName);
             }
         }
 
@@ -51,6 +72,16 @@ namespace Survivor.Tribes
             if (stats == null)
             {
                 stats = new TribeMemberStats();
+            }
+
+            // Set the name tag
+            if (nameTag != null)
+            {
+                nameTag.SetName(memberName);
+            }
+            else
+            {
+                CreateNameTag();
             }
         }
 

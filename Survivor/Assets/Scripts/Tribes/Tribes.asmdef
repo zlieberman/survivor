@@ -3,7 +3,8 @@
     "rootNamespace": "Survivor.Tribes",
     "references": [
         "StarterAssets",
-        "Survivor.Generation"
+        "Survivor.Generation",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -24,6 +24,12 @@ namespace Survivor.Core
             public List<string> alliance = new List<string>();
         }
 
+        [System.Serializable]
+        private class NPCConfig
+        {
+            public string[] names;
+        }
+
         [Header("NPC Configuration")]
         public GameObject npcPrefab;
         public int startingNPCCount = 8;
@@ -39,6 +45,8 @@ namespace Survivor.Core
 
         private Dictionary<string, NPCData> npcs = new Dictionary<string, NPCData>();
         private List<string> eliminatedNPCs = new List<string>();
+        private List<string> availableNames = new List<string>();
+        private HashSet<string> usedNames = new HashSet<string>();
 
         private void Awake()
         {
@@ -46,10 +54,63 @@ namespace Survivor.Core
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+                LoadNames();
             }
             else
             {
                 Destroy(gameObject);
+            }
+        }
+
+        private void LoadNames()
+        {
+            TextAsset configFile = Resources.Load<TextAsset>("NPCConfig");
+            if (configFile != null)
+            {
+                NPCConfig config = JsonUtility.FromJson<NPCConfig>(configFile.text);
+                availableNames = new List<string>(config.names);
+                ShuffleNames();
+            }
+            else
+            {
+                Debug.LogError("Failed to load NPCConfig.json from Resources folder!");
+            }
+        }
+
+        private void ShuffleNames()
+        {
+            // Fisher-Yates shuffle
+            for (int i = availableNames.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                string temp = availableNames[i];
+                availableNames[i] = availableNames[j];
+                availableNames[j] = temp;
+            }
+        }
+
+        private string GetRandomName()
+        {
+            if (availableNames.Count == 0)
+            {
+                // If we run out of names, reset the pool
+                availableNames = new List<string>(usedNames);
+                usedNames.Clear();
+                ShuffleNames();
+            }
+
+            string name = availableNames[0];
+            availableNames.RemoveAt(0);
+            usedNames.Add(name);
+            return name;
+        }
+
+        private void ReleaseName(string name)
+        {
+            if (usedNames.Contains(name))
+            {
+                usedNames.Remove(name);
+                availableNames.Add(name);
             }
         }
 
@@ -60,22 +121,23 @@ namespace Survivor.Core
 
         private void GenerateInitialNPCs()
         {
-            string[] defaultNames = {
-                "Alex", "Jordan", "Morgan", "Taylor", "Sam", 
-                "Casey", "Riley", "Quinn", "Jamie", "Avery"
-            };
-
-            for (int i = 0; i < initialNPCCount && i < defaultNames.Length; i++)
+            for (int i = 0; i < initialNPCCount; i++)
             {
-                CreateNPC(defaultNames[i]);
+                CreateNPC(GetRandomName());
             }
 
             // Initialize relationships between NPCs
             InitializeRelationships();
         }
 
-        public NPCData CreateNPC(string name)
+        public NPCData CreateNPC(string name = null)
         {
+            // If no name provided, get a random one
+            if (string.IsNullOrEmpty(name))
+            {
+                name = GetRandomName();
+            }
+
             if (npcs.ContainsKey(name))
                 return null;
 
@@ -173,6 +235,9 @@ namespace Survivor.Core
                 npc.relationships.Remove(npcName);
                 npc.alliance.Remove(npcName);
             }
+
+            // Release the name back to the pool
+            ReleaseName(npcName);
 
             // Move to eliminated list
             eliminatedNPCs.Add(npcName);
