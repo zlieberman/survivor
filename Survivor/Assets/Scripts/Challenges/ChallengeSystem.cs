@@ -52,10 +52,10 @@ namespace Survivor.Challenges
 
         private void Start()
         {
-            npcManager = FindObjectOfType<MonoBehaviour>() as INPCManager;
+            npcManager = FindObjectOfType<TribeManager>();
             if (npcManager == null)
             {
-                Debug.LogError("No INPCManager implementation found in the scene!");
+                Debug.LogError("No TribeManager found in the scene! Make sure it exists and implements INPCManager.");
             }
         }
 
@@ -95,19 +95,19 @@ namespace Survivor.Challenges
         {
             // Add default challenges here
             // This is just an example, you should create proper challenge assets
-            var memoryMaze = ScriptableObject.CreateInstance<Challenge>();
-            memoryMaze.data = new ChallengeData
+            var balanceBeam = ScriptableObject.CreateInstance<EnduranceChallenge>();
+            balanceBeam.data = new ChallengeData
             {
-                id = "memory_maze",
-                title = "Memory Maze",
-                description = "Navigate a maze while solving memory puzzles",
-                type = ChallengeType.Hybrid,
+                id = "balance_beam",
+                title = "Balance Beam",
+                description = "Maintain your balance on the beam as long as possible!",
+                type = ChallengeType.Endurance,
                 strengthWeight = 0.2f,
                 agilityWeight = 0.4f,
-                puzzleWeight = 0.4f,
-                difficulty = ChallengeDifficulty.Hard
+                puzzleWeight = 0.0f,
+                difficulty = ChallengeDifficulty.Medium
             };
-            availableChallenges.Add(memoryMaze);
+            availableChallenges.Add(balanceBeam);
         }
 
         public void StartChallenge(Challenge challenge = null)

@@ -8,7 +8,8 @@
         "Survivor.Common",
         "Survivor.Challenges",
         "Survivor.Tribes",
-        "Survivor.Environment"
+        "Survivor.Environment",
+        "Survivor.Generation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

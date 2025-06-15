@@ -620,5 +620,10 @@ namespace Survivor.Generation
         {
             get { return terrainSize * 0.4f; } // Match the radius used in generation
         }
+
+        public Vector3? GetCampPosition()
+        {
+            return campPosition;
+        }
     }
 } 

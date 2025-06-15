@@ -41,6 +41,19 @@ namespace Survivor.Tribes
             }
         }
 
+        public void Initialize(string name, string tribe, bool isPlayer, int id)
+        {
+            memberName = name;
+            tribeName = tribe;
+            IsPlayer = isPlayer;
+            
+            // Initialize stats if they don't exist
+            if (stats == null)
+            {
+                stats = new TribeMemberStats();
+            }
+        }
+
         public void UpdateRelationship(string otherMemberName, float delta)
         {
             if (!Relationships.ContainsKey(otherMemberName))

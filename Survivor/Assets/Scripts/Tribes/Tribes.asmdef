@@ -2,7 +2,8 @@
     "name": "Survivor.Tribes",
     "rootNamespace": "Survivor.Tribes",
     "references": [
-        "StarterAssets"
+        "StarterAssets",
+        "Survivor.Generation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
