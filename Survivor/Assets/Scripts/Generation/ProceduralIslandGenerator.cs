@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using Survivor.Environment;
+using Survivor.Shared;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif

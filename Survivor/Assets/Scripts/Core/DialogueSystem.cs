@@ -1,200 +1,229 @@
 using UnityEngine;
-using UnityEngine.Events;
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine.Events;
+using Newtonsoft.Json;
+using System.Net.Http;
+using System.Text;
+using Survivor.Tribes;
+using Survivor.Challenges;
 
 namespace Survivor.Core
 {
+    [Serializable]
+    public class DialogueContext
+    {
+        public string npcName;
+        public Dictionary<string, float> stats;
+        public Dictionary<string, bool> gameContext;
+        public string playerHistory;
+        public string dialoguePrompt;
+    }
+
     public class DialogueSystem : MonoBehaviour
     {
-        [System.Serializable]
-        public class DialogueData
+        public static DialogueSystem Instance { get; private set; }
+
+        [Header("LLM Configuration")]
+        public string llmEndpoint = "http://localhost:11434/api/generate"; // Default Ollama endpoint
+        public string llmModel = "mistral"; // Default model
+        public float responseTemperature = 0.7f;
+        public int maxTokens = 100;
+
+        [Header("Dialogue Events")]
+        public UnityEvent<string> onDialogueStart;
+        public UnityEvent onDialogueEnd;
+        public UnityEvent<string> onDialogueLine;
+
+        private HttpClient httpClient;
+        private bool isProcessingDialogue;
+        private INPCManager npcManager;
+        private bool isInDialogue = false;
+
+        private void Awake()
         {
-            public string speakerName;
-            public string listenerName;
-            public string content;
-            public float relationshipImpact;
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
+                httpClient = new HttpClient();
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
         }
 
-        [Header("Dialogue Settings")]
-        public float minDialogueDuration = 5f;
-        public float maxDialogueDuration = 15f;
-        public float dialogueCooldown = 30f;
-
-        [Header("Events")]
-        public UnityEvent<DialogueData> onDialogueStart;
-        public UnityEvent<DialogueData> onDialogueEnd;
-
-        private NPCManager npcManager;
-        private Dictionary<string, float> lastDialogueTime = new Dictionary<string, float>();
-
-        public void Initialize(NPCManager npcManager)
+        public void Initialize(INPCManager npcManager)
         {
             this.npcManager = npcManager;
         }
 
-        public void InitiateDialogue(string initiatorName, string targetName)
+        public void StartDialogue(string dialogueId)
         {
-            if (!CanInitiateDialogue(initiatorName, targetName))
-                return;
+            if (isInDialogue) return;
 
-            NPCManager.NPCData initiator = npcManager.GetNPCData(initiatorName);
-            NPCManager.NPCData target = npcManager.GetNPCData(targetName);
+            isInDialogue = true;
+            onDialogueStart?.Invoke(dialogueId);
+            // TODO: Load and start dialogue sequence
+        }
 
-            if (initiator == null || target == null)
-                return;
+        public void EndDialogue()
+        {
+            if (!isInDialogue) return;
 
-            DialogueData dialogue = GenerateDialogue(initiator, target);
-            if (dialogue != null)
+            isInDialogue = false;
+            onDialogueEnd?.Invoke();
+        }
+
+        public void ShowDialogueLine(string line)
+        {
+            onDialogueLine?.Invoke(line);
+        }
+
+        public bool IsInDialogue()
+        {
+            return isInDialogue;
+        }
+
+        public async Task<string> GenerateDialogue(TribeMember tribeMember, string playerPrompt)
+        {
+            if (tribeMember == null) return "Error: No NPC selected.";
+
+            if (isProcessingDialogue) return null;
+            isProcessingDialogue = true;
+
+            try
             {
-                StartCoroutine(ProcessDialogue(dialogue));
+                var context = BuildDialogueContext(tribeMember, playerPrompt);
+                
+                // Convert context to JSON
+                string jsonContext = JsonConvert.SerializeObject(context);
+
+                // Create the prompt for the LLM
+                string fullPrompt = $@"You are {context.npcName}, a contestant in a Survivor-style game. 
+Respond to the player based on your personality and the current game context.
+Your personality traits are: {FormatPersonality(context.stats)}
+Game context: {FormatGameContext(context.gameContext)}
+Recent history with player: {context.playerHistory}
+
+Player says: {context.dialoguePrompt}
+
+Respond in character, keeping your response concise (1-2 sentences). Consider your personality traits and current game situation.";
+
+                // Send request to LLM
+                var response = await SendToLLM(fullPrompt);
+                
+                return response;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error generating dialogue: {e.Message}");
+                return "Sorry, I'm having trouble responding right now.";
+            }
+            finally
+            {
+                isProcessingDialogue = false;
             }
         }
 
-        private bool CanInitiateDialogue(string initiatorName, string targetName)
+        private DialogueContext BuildDialogueContext(TribeMember tribeMember, string playerPrompt)
         {
-            // Check cooldown
-            if (lastDialogueTime.ContainsKey(initiatorName) &&
-                Time.time - lastDialogueTime[initiatorName] < dialogueCooldown)
-                return false;
-
-            if (lastDialogueTime.ContainsKey(targetName) &&
-                Time.time - lastDialogueTime[targetName] < dialogueCooldown)
-                return false;
-
-            return true;
-        }
-
-        private DialogueData GenerateDialogue(NPCManager.NPCData initiator, NPCManager.NPCData target)
-        {
-            DialogueData dialogue = new DialogueData
+            var context = new DialogueContext
             {
-                speakerName = initiator.name,
-                listenerName = target.name,
-                content = GenerateDialogueContent(initiator, target),
-                relationshipImpact = CalculateRelationshipImpact(initiator, target)
+                npcName = tribeMember.memberName,
+                stats = new Dictionary<string, float>
+                {
+                    { "perception", tribeMember.stats.perception },
+                    { "deception", tribeMember.stats.deception },
+                    { "persuasion", tribeMember.stats.persuasion },
+                    { "puzzleSolving", tribeMember.stats.puzzleSolving },
+                    { "charisma", tribeMember.stats.charisma },
+                    { "honesty", tribeMember.stats.honesty },
+                    { "trust", tribeMember.stats.trust },
+                    { "honor", tribeMember.stats.honor }
+                },
+                gameContext = new Dictionary<string, bool>
+                {
+                    { "isInChallenge", ChallengeSystem.Instance.IsInChallenge() },
+                    { "isVotingTime", VotingSystem.Instance.IsVotingActive },
+                    { "isPlayer", tribeMember.IsPlayer }
+                },
+                playerHistory = GetPlayerHistory(tribeMember),
+                dialoguePrompt = playerPrompt
             };
 
-            return dialogue;
+            return context;
         }
 
-        private string GenerateDialogueContent(NPCManager.NPCData speaker, NPCManager.NPCData listener)
+        private string GetPlayerHistory(TribeMember tribeMember)
         {
-            float relationship = npcManager.GetRelationship(speaker.name, listener.name);
-            bool areAllied = npcManager.AreAllied(speaker.name, listener.name);
+            // For now, return a simple history based on tribe membership
+            return $"Member of {tribeMember.tribeName} tribe.";
+        }
 
-            // Generate dialogue based on relationship and personality traits
-            string content = "";
-
-            if (areAllied)
+        private string FormatPersonality(Dictionary<string, float> personality)
+        {
+            var traits = new List<string>();
+            foreach (var trait in personality)
             {
-                if (relationship > 70)
+                string level = trait.Value <= 3 ? "low" : trait.Value >= 8 ? "high" : "moderate";
+                traits.Add($"{trait.Key}: {level}");
+            }
+            return string.Join(", ", traits);
+        }
+
+        private string FormatGameContext(Dictionary<string, bool> context)
+        {
+            var situations = new List<string>();
+            foreach (var item in context)
+            {
+                if (item.Value)
                 {
-                    content = GenerateStrongAllianceDialogue(speaker, listener);
-                }
-                else
-                {
-                    content = GenerateWeakAllianceDialogue(speaker, listener);
+                    situations.Add(item.Key);
                 }
             }
-            else
+            return situations.Count > 0 ? string.Join(", ", situations) : "normal game phase";
+        }
+
+        private async Task<string> SendToLLM(string prompt)
+        {
+            try
             {
-                if (relationship > 50)
+                var requestBody = new
                 {
-                    content = GenerateFriendlyDialogue(speaker, listener);
-                }
-                else
-                {
-                    content = GenerateHostileDialogue(speaker, listener);
-                }
+                    model = llmModel,
+                    prompt = prompt,
+                    temperature = responseTemperature,
+                    max_tokens = maxTokens
+                };
+
+                var content = new StringContent(
+                    JsonConvert.SerializeObject(requestBody),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+                var response = await httpClient.PostAsync(llmEndpoint, content);
+                response.EnsureSuccessStatusCode();
+
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                // Parse response based on your LLM API's response format
+                // This is a simplified example
+                var responseObj = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonResponse);
+                return responseObj["response"] ?? "I'm not sure how to respond to that.";
             }
-
-            return content;
+            catch (Exception e)
+            {
+                Debug.LogError($"Error calling LLM API: {e.Message}");
+                return "I'm having trouble thinking of a response.";
+            }
         }
 
-        private string GenerateStrongAllianceDialogue(NPCManager.NPCData speaker, NPCManager.NPCData listener)
+        private void OnDestroy()
         {
-            string[] templates = {
-                "We need to stick together in the next vote, {0}. I've got your back.",
-                "I trust you completely, {0}. Let's make it to the end together.",
-                "You're my closest ally here, {0}. We should discuss our strategy."
-            };
-
-            return string.Format(templates[Random.Range(0, templates.Length)], listener.name);
-        }
-
-        private string GenerateWeakAllianceDialogue(NPCManager.NPCData speaker, NPCManager.NPCData listener)
-        {
-            string[] templates = {
-                "I hope we can continue working together, {0}. What are your thoughts?",
-                "We should maintain our alliance, {0}, but we need to be careful.",
-                "I want to trust you, {0}, but this game makes it difficult."
-            };
-
-            return string.Format(templates[Random.Range(0, templates.Length)], listener.name);
-        }
-
-        private string GenerateFriendlyDialogue(NPCManager.NPCData speaker, NPCManager.NPCData listener)
-        {
-            string[] templates = {
-                "Hey {0}, would you be interested in working together?",
-                "I think we could help each other in this game, {0}.",
-                "We haven't talked much, {0}, but I'd like to change that."
-            };
-
-            return string.Format(templates[Random.Range(0, templates.Length)], listener.name);
-        }
-
-        private string GenerateHostileDialogue(NPCManager.NPCData speaker, NPCManager.NPCData listener)
-        {
-            string[] templates = {
-                "I know you're plotting against me, {0}. That's not a smart move.",
-                "You should be careful about your choices, {0}.",
-                "We both know only one of us can win, {0}."
-            };
-
-            return string.Format(templates[Random.Range(0, templates.Length)], listener.name);
-        }
-
-        private float CalculateRelationshipImpact(NPCManager.NPCData speaker, NPCManager.NPCData listener)
-        {
-            float baseImpact = Random.Range(-5f, 5f);
-
-            // Modify impact based on charisma and personality traits
-            float charismaFactor = speaker.charisma / 100f;
-            baseImpact *= charismaFactor;
-
-            // Add some randomness based on sneakiness
-            float sneakinessFactor = speaker.sneakiness / 100f;
-            baseImpact += Random.Range(-sneakinessFactor * 2f, sneakinessFactor * 2f);
-
-            return Mathf.Clamp(baseImpact, -10f, 10f);
-        }
-
-        private System.Collections.IEnumerator ProcessDialogue(DialogueData dialogue)
-        {
-            // Update last dialogue time
-            lastDialogueTime[dialogue.speakerName] = Time.time;
-            lastDialogueTime[dialogue.listenerName] = Time.time;
-
-            // Start dialogue
-            onDialogueStart?.Invoke(dialogue);
-
-            // Wait for dialogue duration
-            float duration = Random.Range(minDialogueDuration, maxDialogueDuration);
-            yield return new WaitForSeconds(duration);
-
-            // Update relationships
-            npcManager.UpdateRelationship(dialogue.listenerName, dialogue.speakerName, dialogue.relationshipImpact);
-            npcManager.UpdateRelationship(dialogue.speakerName, dialogue.listenerName, dialogue.relationshipImpact * 0.5f);
-
-            // End dialogue
-            onDialogueEnd?.Invoke(dialogue);
-        }
-
-        public void ForceEndDialogue(string speakerName, string listenerName)
-        {
-            lastDialogueTime[speakerName] = Time.time;
-            lastDialogueTime[listenerName] = Time.time;
+            httpClient?.Dispose();
         }
     }
 } 

@@ -2,121 +2,202 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.AI;
-using Survivor.Generation;
+using StarterAssets;
+using System.Linq;
 
 namespace Survivor.Tribes
 {
-    public class TribeManager : MonoBehaviour
+    public class TribeManager : MonoBehaviour, ITribeManager, INPCManager
     {
+        public static TribeManager Instance { get; private set; }
+
+        [Header("Spawn Settings")]
+        public float spawnRadius = 5f;
+        public float minSpawnDistance = 2f;
+
+        [Header("Tribe Settings")]
+        public string tribeAName = "TribeA";
+        public string tribeBName = "TribeB";
+
+        private Dictionary<string, List<TribeMember>> tribes = new Dictionary<string, List<TribeMember>>();
+        private List<TribeMember> tribeMembers = new List<TribeMember>();
         private bool isInitialized = false;
-        private GameObject playerPrefab;
-        private GameObject npcPrefab;
 
-        public void Initialize(string playerTribeName, string opposingTribeName, Color playerTribeColor, Color opposingTribeColor)
+        private void Awake()
         {
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+        }
+
+        public void Initialize()
+        {
+            if (isInitialized) return;
+
+            tribes.Clear();
+            tribes[tribeAName] = new List<TribeMember>();
+            tribes[tribeBName] = new List<TribeMember>();
+
             isInitialized = true;
+            Debug.Log("TribeManager initialized");
         }
 
-        public IEnumerator InitializeTribes(GameObject playerPrefab, GameObject npcPrefab)
+        private IEnumerator CreateTribe(string tribeName, bool includePlayer)
         {
-            if (!isInitialized)
-            {
-                Debug.LogError("TribeManager not initialized!");
-                yield break;
-            }
-
-            this.playerPrefab = playerPrefab;
-            this.npcPrefab = npcPrefab;
-            Debug.Log("Tribe initialization complete");
-        }
-
-        public IEnumerator SpawnTribeMembers()
-        {
-            if (!isInitialized)
-            {
-                Debug.LogError("TribeManager not initialized!");
-                yield break;
-            }
-
-            // Find camp spawn point
-            CampGenerator campGenerator = FindObjectOfType<CampGenerator>();
-            if (campGenerator == null || !campGenerator.CampPlaced)
-            {
-                Debug.LogError("Camp not placed yet!");
-                yield break;
-            }
-
-            Transform spawnPoint = campGenerator.CampSpawnPoint;
-            if (spawnPoint == null)
-            {
-                Debug.LogError("Camp spawn point not found!");
-                yield break;
-            }
-
-            // Spawn main player
-            yield return StartCoroutine(SpawnPlayer(spawnPoint));
-        }
-
-        private IEnumerator SpawnPlayer(Transform spawnPoint)
-        {
-            if (spawnPoint == null) yield break;
-
-            Vector3 spawnPosition = spawnPoint.position;
-            Terrain terrain = FindObjectOfType<Terrain>();
-            
-            if (terrain != null)
-            {
-                float terrainHeight = terrain.SampleHeight(spawnPosition);
-                spawnPosition.y = terrainHeight + 1f;
-            }
-
-            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-            if (playerObject != null)
-            {
-                SetupPlayerComponents(playerObject);
-                SetupPlayerCamera(playerObject);
-            }
-
+            List<TribeMember> tribeMembers = new List<TribeMember>();
+            // Implementation here
             yield return null;
         }
 
-        private void SetupPlayerComponents(GameObject playerObject)
+        private Vector3 CalculateSpawnPosition(Vector3 center, List<TribeMember> existingMembers)
         {
-            CharacterController controller = playerObject.GetComponent<CharacterController>();
-            if (controller == null)
-            {
-                controller = playerObject.AddComponent<CharacterController>();
-                controller.height = 2f;
-                controller.radius = 0.5f;
-                controller.stepOffset = 0.3f;
-            }
+            Vector3 position;
+            int maxAttempts = 10;
+            int attempts = 0;
 
-            ThirdPersonController thirdPersonController = playerObject.GetComponent<ThirdPersonController>();
-            if (thirdPersonController == null)
+            do
             {
-                thirdPersonController = playerObject.AddComponent<ThirdPersonController>();
+                position = center + Random.insideUnitSphere * spawnRadius;
+                position.y = center.y;
+                attempts++;
+            } while (attempts < maxAttempts && existingMembers.Any(m => Vector3.Distance(m.transform.position, position) < minSpawnDistance));
+
+            return position;
+        }
+
+        public List<TribeMember> GetTribeMembers(string tribeName)
+        {
+            return tribes.ContainsKey(tribeName) ? tribes[tribeName] : new List<TribeMember>();
+        }
+
+        public TribeMember GetPlayer()
+        {
+            return tribeMembers.FirstOrDefault(member => member.IsPlayer);
+        }
+
+        public void EliminateMember(TribeMember member)
+        {
+            if (member != null)
+            {
+                member.gameObject.SetActive(false);
+                tribeMembers.Remove(member);
+                foreach (var tribe in tribes.Values)
+                {
+                    tribe.Remove(member);
+                }
             }
         }
 
-        private void SetupPlayerCamera(GameObject playerObject)
+        public TribeMember GetNPCData(string npcName)
         {
-            GameObject mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
-            if (mainCamera != null)
+            return tribeMembers.FirstOrDefault(member => member.name == npcName);
+        }
+
+        public void StartChallenge(List<TribeMember> participants)
+        {
+            foreach (var participant in participants)
             {
-                // Create a simple camera follow script if it doesn't exist
-                CameraFollow cameraFollow = mainCamera.GetComponent<CameraFollow>();
-                if (cameraFollow == null)
+                if (participant != null)
                 {
-                    cameraFollow = mainCamera.AddComponent<CameraFollow>();
+                    participant.IsInChallenge = true;
                 }
-
-                cameraFollow.target = playerObject.transform;
-                cameraFollow.offset = new Vector3(0, 2, -5);
-                cameraFollow.smoothSpeed = 0.125f;
-
-                mainCamera.transform.position = playerObject.transform.position + cameraFollow.offset;
-                mainCamera.transform.LookAt(playerObject.transform.position + Vector3.up * 1.5f);
             }
+        }
+
+        public void EliminateParticipant(TribeMember member)
+        {
+            if (member != null)
+            {
+                member.IsInChallenge = false;
+                EliminateMember(member);
+            }
+        }
+
+        public bool IsParticipantInChallenge(TribeMember member)
+        {
+            return member != null && member.IsInChallenge;
+        }
+
+        public List<TribeMember> GetActiveParticipants()
+        {
+            return tribeMembers.Where(member => member != null && member.IsInChallenge).ToList();
+        }
+
+        // INPCManager implementation
+        public TribeMember GetTribeMember(string memberName)
+        {
+            return tribeMembers.FirstOrDefault(member => member.name == memberName);
+        }
+
+        public List<TribeMember> GetAllTribeMembers()
+        {
+            return new List<TribeMember>(tribeMembers);
+        }
+
+        public void AddTribeMember(TribeMember member)
+        {
+            if (member != null && !tribeMembers.Contains(member))
+            {
+                tribeMembers.Add(member);
+            }
+        }
+
+        public void RemoveTribeMember(string memberName)
+        {
+            var member = GetTribeMember(memberName);
+            if (member != null)
+            {
+                tribeMembers.Remove(member);
+            }
+        }
+
+        // INPCManager implementation
+        List<string> INPCManager.GetActiveNPCs()
+        {
+            return tribeMembers
+                .Where(member => member != null && member.gameObject.activeInHierarchy)
+                .Select(member => member.name)
+                .ToList();
+        }
+
+        // ITribeManager implementation
+        IEnumerable<string> ITribeManager.GetActiveNPCs()
+        {
+            return tribeMembers
+                .Where(member => member != null && member.gameObject.activeInHierarchy)
+                .Select(member => member.name);
+        }
+
+        public void UpdateRelationship(string npc1Name, string npc2Name, float delta)
+        {
+            var npc1 = GetTribeMember(npc1Name);
+            var npc2 = GetTribeMember(npc2Name);
+
+            if (npc1 != null && npc2 != null)
+            {
+                // Update relationship in both directions
+                npc1.Relationships[npc2Name] = Mathf.Clamp((npc1.Relationships.ContainsKey(npc2Name) ? npc1.Relationships[npc2Name] : 0f) + delta, -1f, 1f);
+                npc2.Relationships[npc1Name] = Mathf.Clamp((npc2.Relationships.ContainsKey(npc1Name) ? npc2.Relationships[npc1Name] : 0f) + delta, -1f, 1f);
+            }
+        }
+
+        public bool CanStartChallenge(Vector3 position)
+        {
+            // Check if there are enough active NPCs nearby to start a challenge
+            var nearbyNPCs = tribeMembers
+                .Where(member => member != null && 
+                               member.gameObject.activeInHierarchy && 
+                               Vector3.Distance(member.transform.position, position) <= spawnRadius)
+                .ToList();
+
+            // Require at least 2 NPCs to start a challenge
+            return nearbyNPCs.Count >= 2;
         }
     }
 } 

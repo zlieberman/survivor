@@ -1,0 +1,19 @@
+{
+    "name": "Survivor.Generation",
+    "rootNamespace": "Survivor.Generation",
+    "references": [
+        "Survivor.Common",
+        "Survivor.Environment",
+        "Survivor.Shared",
+        "Unity.AI.Navigation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

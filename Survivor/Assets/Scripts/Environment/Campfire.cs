@@ -5,6 +5,12 @@ namespace Survivor.Environment
 {
     public class Campfire : MonoBehaviour
     {
+        [Header("Campfire Settings")]
+        public float warmthRadius = 5f;
+        public float warmthIntensity = 1f;
+        public float fuelAmount = 100f;
+        public float burnRate = 0.1f;
+
         [Header("Fire Properties")]
         public bool isLit = true;
         public float fuelLevel = 100f;
@@ -28,6 +34,20 @@ namespace Survivor.Environment
 
         private void Start()
         {
+            // Get or add required components
+            fireParticles = GetComponentInChildren<ParticleSystem>();
+            fireLight = GetComponentInChildren<Light>();
+
+            if (fireParticles == null)
+            {
+                Debug.LogWarning("No particle system found for campfire");
+            }
+
+            if (fireLight == null)
+            {
+                Debug.LogWarning("No light component found for campfire");
+            }
+
             if (fireLight != null)
                 originalLightIntensity = fireLight.intensity;
 
@@ -39,66 +59,28 @@ namespace Survivor.Environment
 
         private void Update()
         {
-            if (isLit)
+            if (fuelAmount > 0)
             {
-                // Burn fuel
-                fuelLevel -= fuelBurnRate * Time.deltaTime;
-                
-                // Check if fire should go out
-                if (fuelLevel <= 0)
-                {
-                    fuelLevel = 0;
-                    ExtinguishFire();
-                    onFuelEmpty?.Invoke();
-                }
-
-                // Update effects based on fuel level
+                fuelAmount -= burnRate * Time.deltaTime;
                 UpdateFireEffects();
             }
-        }
-
-        public void LightFire()
-        {
-            if (!isLit && fuelLevel > 0)
+            else
             {
-                isLit = true;
-                UpdateFireEffects();
-                onFireStart?.Invoke();
+                ExtinguishFire();
             }
-        }
-
-        public void ExtinguishFire()
-        {
-            if (isLit)
-            {
-                isLit = false;
-                UpdateFireEffects();
-                onFireExtinguish?.Invoke();
-            }
-        }
-
-        public void AddFuel(float amount)
-        {
-            fuelLevel = Mathf.Min(fuelLevel + amount, 100f);
-            UpdateFireEffects();
         }
 
         private void UpdateFireEffects()
         {
-            float intensityMultiplier = isLit ? (fuelLevel / 100f) : 0f;
-
-            // Update light
-            if (fireLight != null)
-            {
-                fireLight.intensity = originalLightIntensity * intensityMultiplier * lightIntensityMultiplier;
-            }
-
-            // Update particles
             if (fireParticles != null)
             {
                 var emission = fireParticles.emission;
-                emission.rateOverTime = originalParticleEmission * intensityMultiplier;
-                fireParticles.gameObject.SetActive(isLit);
+                emission.rateOverTime = fuelAmount * 0.1f;
+            }
+
+            if (fireLight != null)
+            {
+                fireLight.intensity = fuelAmount * 0.01f;
             }
 
             // Update smoke
@@ -115,8 +97,34 @@ namespace Survivor.Environment
                 else if (!isLit && fireAudioSource.isPlaying)
                     fireAudioSource.Stop();
 
-                fireAudioSource.volume = intensityMultiplier;
+                fireAudioSource.volume = fuelAmount * 0.01f;
             }
+        }
+
+        private void ExtinguishFire()
+        {
+            if (fireParticles != null)
+            {
+                fireParticles.Stop();
+            }
+
+            if (fireLight != null)
+            {
+                fireLight.intensity = 0f;
+            }
+
+            isLit = false;
+            onFireExtinguish?.Invoke();
+        }
+
+        public void AddFuel(float amount)
+        {
+            fuelAmount = Mathf.Min(fuelAmount + amount, 100f);
+            if (fireParticles != null && !fireParticles.isPlaying)
+            {
+                fireParticles.Play();
+            }
+            UpdateFireEffects();
         }
 
         private void OnTriggerStay(Collider other)

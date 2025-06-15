@@ -1,0 +1,20 @@
+{
+    "name": "Survivor.Challenges",
+    "rootNamespace": "Survivor.Challenges",
+    "references": [
+        "Survivor.Common",
+        "Unity.TextMeshPro",
+        "Survivor.Tribes"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [
+        "Unity.TextMeshPro"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

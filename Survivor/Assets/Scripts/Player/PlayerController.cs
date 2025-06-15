@@ -1,7 +1,6 @@
 using UnityEngine;
 using Survivor.Core;
-using Survivor.UI;
-using Survivor.Dialogue;
+using Survivor.Tribes;
 using TMPro;
 using UnityEngine.UI;
 
@@ -29,8 +28,8 @@ namespace Survivor.Player
 
         private CharacterController controller;
         private Vector3 velocity;
-        private NPC selectedNPC;
-        private Camera mainCamera;
+        private TribeMember selectedNPC;
+        private UnityEngine.Camera mainCamera;
         private bool inDialogue;
 
         private void Start()
@@ -50,9 +49,9 @@ namespace Survivor.Player
                 dialoguePanel.SetActive(false);
 
             // Subscribe to dialogue events
-            if (Survivor.Dialogue.DialogueSystem.Instance != null)
+            if (Survivor.Core.DialogueSystem.Instance != null)
             {
-                Survivor.Dialogue.DialogueSystem.Instance.onDialogueReceived.AddListener(OnDialogueReceived);
+                Survivor.Core.DialogueSystem.Instance.onDialogueLine.AddListener(OnDialogueReceived);
             }
         }
 
@@ -119,19 +118,19 @@ namespace Survivor.Player
         {
             // Check for nearby NPCs
             Collider[] nearbyNPCs = Physics.OverlapSphere(transform.position, interactionRange, npcLayer);
-            NPC closestNPC = null;
+            TribeMember closestNPC = null;
             float closestDistance = float.MaxValue;
 
             foreach (var collider in nearbyNPCs)
             {
-                NPC npc = collider.GetComponent<NPC>();
-                if (npc != null)
+                TribeMember tribeMember = collider.GetComponent<TribeMember>();
+                if (tribeMember != null && !tribeMember.IsPlayer)
                 {
                     float distance = Vector3.Distance(transform.position, collider.transform.position);
                     if (distance < closestDistance)
                     {
                         closestDistance = distance;
-                        closestNPC = npc;
+                        closestNPC = tribeMember;
                     }
                 }
             }
@@ -157,14 +156,14 @@ namespace Survivor.Player
             }
         }
 
-        private void StartDialogue(NPC npc)
+        private void StartDialogue(TribeMember tribeMember)
         {
             if (dialoguePanel == null) return;
 
             inDialogue = true;
             dialoguePanel.SetActive(true);
             playerInputField.text = "";
-            npcResponseText.text = $"Talking to {npc.npcName}...";
+            npcResponseText.text = $"Talking to {tribeMember.memberName}...";
             
             // Optional: Lock cursor, disable movement, etc.
             Cursor.lockState = CursorLockMode.None;
@@ -180,7 +179,7 @@ namespace Survivor.Player
             playerInputField.text = "";
 
             // Send message to NPC through dialogue system
-            string response = await Survivor.Dialogue.DialogueSystem.Instance.GenerateDialogue(selectedNPC, playerMessage);
+            string response = await Survivor.Core.DialogueSystem.Instance.GenerateDialogue(selectedNPC, playerMessage);
             OnDialogueReceived(response);
         }
 
@@ -209,9 +208,9 @@ namespace Survivor.Player
         private void OnDestroy()
         {
             // Unsubscribe from events
-            if (Survivor.Dialogue.DialogueSystem.Instance != null)
+            if (Survivor.Core.DialogueSystem.Instance != null)
             {
-                Survivor.Dialogue.DialogueSystem.Instance.onDialogueReceived.RemoveListener(OnDialogueReceived);
+                Survivor.Core.DialogueSystem.Instance.onDialogueLine.RemoveListener(OnDialogueReceived);
             }
         }
 

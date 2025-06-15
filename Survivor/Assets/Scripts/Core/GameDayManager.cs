@@ -2,6 +2,9 @@ using UnityEngine;
 using System;
 using UnityEngine.Events;
 using System.Collections;
+using System.Linq;
+using Survivor.Tribes;
+using Survivor.Challenges;
 
 namespace Survivor.Core
 {
@@ -28,9 +31,13 @@ namespace Survivor.Core
         private float currentPhaseTime;
         private int humanPlayerId = -1; // Track the human player's ID
 
+        [Header("Game Settings")]
+        public float dayDuration = 300f; // 5 minutes per day
+        public float nightDuration = 60f; // 1 minute per night
+
         [Header("Events")]
         public UnityEvent onDayStart;
-        public UnityEvent onDayEnd;
+        public UnityEvent onNightStart;
         public UnityEvent<GamePhase> onPhaseChange;
         public UnityEvent<int> onPlayerRegistered;
 
@@ -41,10 +48,10 @@ namespace Survivor.Core
         public UnityEvent onTribalCouncilStart;
         public UnityEvent onEliminationStart;
 
-        private NPCManager npcManager;
-        private ChallengeSystem challengeSystem;
-        private VotingSystem votingSystem;
+        private INPCManager npcManager;
+        private IChallengeManager challengeManager;
         private bool isGameActive = false;
+        private bool isDay = true;
 
         private void Awake()
         {
@@ -66,10 +73,14 @@ namespace Survivor.Core
 
         private void Update()
         {
-            if (NPCManager.Instance.GetActiveNPCs().Count <= 1)
+            if (npcManager != null && npcManager.GetActiveNPCs().Count <= 1)
             {
                 // Game Over - Only one player remains
-                Debug.Log("Game Over! Winner: " + NPCManager.Instance.GetActiveNPCs()[0]);
+                var activeNPCs = npcManager.GetActiveNPCs();
+                if (activeNPCs.Count > 0)
+                {
+                    Debug.Log("Game Over! Winner: " + activeNPCs[0]);
+                }
                 enabled = false;
                 return;
             }
@@ -131,11 +142,11 @@ namespace Survivor.Core
             return playerId == humanPlayerId;
         }
 
-        public void Initialize(NPCManager npcManager, ChallengeSystem challengeSystem, VotingSystem votingSystem)
+        public void Initialize(INPCManager npcManager, IChallengeManager challengeManager)
         {
             this.npcManager = npcManager;
-            this.challengeSystem = challengeSystem;
-            this.votingSystem = votingSystem;
+            this.challengeManager = challengeManager;
+            StartCoroutine(GameLoop());
         }
 
         public void StartGame()
@@ -151,70 +162,22 @@ namespace Survivor.Core
         {
             while (isGameActive)
             {
-                // Start new day
-                onDayStart?.Invoke();
-                Debug.Log($"Day {currentDay} started");
-
-                // Exploration Phase
-                SetPhase(GamePhase.Exploration);
-                yield return new WaitForSeconds(phaseDuration);
-
-                // Challenge Phase
-                SetPhase(GamePhase.Challenge);
-                yield return StartCoroutine(RunChallenge());
-
-                // Social Time Phase
-                SetPhase(GamePhase.SocialTime);
-                yield return new WaitForSeconds(phaseDuration);
-
-                // Tribal Council Phase
-                SetPhase(GamePhase.TribalCouncil);
-                yield return StartCoroutine(RunTribalCouncil());
-
-                // Elimination Phase
-                SetPhase(GamePhase.Elimination);
-                yield return StartCoroutine(ProcessElimination());
-
-                // End day
-                onDayEnd?.Invoke();
-                currentDay++;
-
-                // Check game end condition
-                if (npcManager.GetActiveNPCs().Count <= 2)
+                if (isDay)
                 {
-                    EndGame();
-                    break;
+                    // Day phase
+                    onDayStart?.Invoke();
+                    Debug.Log($"Day {currentDay} started");
+                    yield return new WaitForSeconds(dayDuration);
+                    isDay = false;
+                }
+                else
+                {
+                    // Night phase
+                    onNightStart?.Invoke();
+                    yield return new WaitForSeconds(nightDuration);
+                    isDay = true;
                 }
             }
-        }
-
-        private IEnumerator RunChallenge()
-        {
-            challengeSystem.StartChallenge();
-            while (challengeSystem.IsRunning)
-            {
-                yield return null;
-            }
-        }
-
-        private IEnumerator RunTribalCouncil()
-        {
-            votingSystem.StartVoting();
-            while (votingSystem.IsVotingActive)
-            {
-                yield return null;
-            }
-        }
-
-        private IEnumerator ProcessElimination()
-        {
-            string eliminatedNPC = votingSystem.GetEliminatedPlayer();
-            if (!string.IsNullOrEmpty(eliminatedNPC))
-            {
-                npcManager.EliminateNPC(eliminatedNPC);
-                Debug.Log($"{eliminatedNPC} has been eliminated");
-            }
-            yield return new WaitForSeconds(3f); // Time for elimination animation/notification
         }
 
         private void SetPhase(GamePhase newPhase)
@@ -235,6 +198,11 @@ namespace Survivor.Core
                     break;
                 case GamePhase.Challenge:
                     onChallengeStart?.Invoke();
+                    if (challengeManager != null)
+                    {
+                        // Start a random challenge when entering challenge phase
+                        challengeManager.StartChallenge(null);
+                    }
                     break;
                 case GamePhase.SocialTime:
                     onSocialTimeStart?.Invoke();

@@ -1,13 +1,14 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using Survivor.Tribes;
 
 namespace Survivor.Core
 {
     /// <summary>
     /// Manages all NPCs in the game, handling their creation, relationships, and game state
     /// </summary>
-    public class NPCManager : MonoBehaviour
+    public class NPCManager : MonoBehaviour, INPCManager
     {
         public static NPCManager Instance { get; private set; }
 
@@ -233,6 +234,48 @@ namespace Survivor.Core
                 "Avery", "Parker", "Blake", "Charlie", "Jamie", "Phoenix", "River", "Sage"
             };
             return names[Random.Range(0, names.Length)];
+        }
+
+        public TribeMember GetTribeMember(string memberName)
+        {
+            NPCData npcData = GetNPCData(memberName);
+            if (npcData == null) return null;
+
+            return new TribeMember
+            {
+                memberName = npcData.name,
+                tribeName = "Main Tribe", // You might want to make this configurable
+                stats = new TribeMemberStats
+                {
+                    perception = npcData.loyalty,
+                    deception = npcData.sneakiness,
+                    persuasion = npcData.charisma,
+                    puzzleSolving = 50f, // Default value
+                    swimming = 50f, // Default value
+                    speed = 50f, // Default value
+                    strength = 50f, // Default value
+                    charisma = npcData.charisma,
+                    honesty = 100f - npcData.sneakiness,
+                    trust = npcData.loyalty,
+                    honor = 100f - npcData.aggression
+                }
+            };
+        }
+
+        public List<TribeMember> GetAllTribeMembers()
+        {
+            return npcs.Keys.Select(name => GetTribeMember(name)).ToList();
+        }
+
+        public void AddTribeMember(TribeMember member)
+        {
+            if (member == null) return;
+            CreateNPC(member.memberName);
+        }
+
+        public void RemoveTribeMember(string memberName)
+        {
+            EliminateNPC(memberName);
         }
     }
 } 
