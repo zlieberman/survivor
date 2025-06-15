@@ -8,15 +8,21 @@ namespace Survivor.Environment
 {
     public class IslandGenerator : MonoBehaviour
     {
+        [Header("Island Settings")]
+        public float radius = 100f;
+        public float height = 20f;
+        public int resolution = 256;
+        public float noiseScale = 0.1f;
+        public int seed = 0;
+
         [Header("Terrain Settings")]
         public int terrainSize = 1000;
         public int heightmapResolution = 513;
         public float maxHeight = 50f;
         public float baseHeight = 20f;
-        public float noiseScale = 50f;
-        public int octaves = 4;
         public float persistence = 0.5f;
         public float lacunarity = 2f;
+        public int octaves = 4;
 
         [Header("Water Settings")]
         public float waterLevel = 15f;
@@ -38,6 +44,11 @@ namespace Survivor.Environment
         private Terrain terrain;
         private TerrainData terrainData;
         private WaterSystem waterSystem;
+
+        private void Start()
+        {
+            GenerateIsland();
+        }
 
         public void GenerateIsland()
         {
@@ -83,7 +94,7 @@ namespace Survivor.Environment
         private float[,] GenerateNoiseMap()
         {
             float[,] noiseMap = new float[heightmapResolution, heightmapResolution];
-            System.Random prng = new System.Random(Random.Range(0, 99999));
+            System.Random prng = new System.Random(seed);
 
             Vector2[] octaveOffsets = new Vector2[octaves];
             for (int i = 0; i < octaves; i++)

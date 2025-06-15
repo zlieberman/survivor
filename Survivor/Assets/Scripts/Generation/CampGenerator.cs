@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.AI;
+using Unity.AI.Navigation;
 using System.Collections;
 
 namespace Survivor.Generation
@@ -34,6 +36,8 @@ namespace Survivor.Generation
         private LayerMask terrainMask;
         private Terrain terrain;
         
+        private NavMeshSurface navMeshSurface;
+        
         public Vector3 TentPosition 
         { 
             get { return tentPosition; }
@@ -58,6 +62,17 @@ namespace Survivor.Generation
             {
                 Debug.LogError("CampGenerator requires a Terrain component on the same GameObject!");
                 return;
+            }
+
+            // Set up NavMeshSurface
+            navMeshSurface = GetComponent<NavMeshSurface>();
+            if (navMeshSurface == null)
+            {
+                navMeshSurface = gameObject.AddComponent<NavMeshSurface>();
+                navMeshSurface.collectObjects = CollectObjects.Volume;
+                navMeshSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+                navMeshSurface.layerMask = terrainMask;
+                Debug.Log("Added NavMeshSurface component");
             }
 
             // Set up the terrain layer mask to include both the default terrain layer and the "Terrain" layer if it exists
@@ -131,6 +146,15 @@ namespace Survivor.Generation
                 tent.transform.localScale = tentScale;
                 AddCampObjectPhysics(tent);
 
+                // Create and set up the camp spawn point
+                GameObject spawnPointObj = new GameObject("CampSpawnPoint");
+                spawnPointObj.transform.parent = transform;
+                spawnPointObj.transform.position = tentPosition + new Vector3(-1f, 0, 5f); // Same offset as in SpawnPlayerAtCamp
+                spawnPointObj.transform.position = new Vector3(spawnPointObj.transform.position.x, 
+                    GetTerrainHeight(spawnPointObj.transform.position) + 1f, 
+                    spawnPointObj.transform.position.z);
+                CampSpawnPoint = spawnPointObj.transform;
+
                 // Place campfire near tent
                 Vector3 fireOffset = new Vector3(-1f, 0, 7f);
                 Vector3 firePosition = new Vector3(tentPosition.x + fireOffset.x, 0, tentPosition.z + fireOffset.z);
@@ -152,6 +176,18 @@ namespace Survivor.Generation
 
                 Debug.Log($"Camp generated successfully at position: {tentPosition}");
                 CampPlaced = true;
+
+                // Bake NavMesh after camp is placed
+                if (navMeshSurface != null)
+                {
+                    Debug.Log("Baking NavMesh...");
+                    navMeshSurface.BuildNavMesh();
+                    Debug.Log("NavMesh baking complete");
+                }
+                else
+                {
+                    Debug.LogError("NavMeshSurface component not found!");
+                }
 
                 // Position the player at the camp
                 SpawnPlayerAtCamp();

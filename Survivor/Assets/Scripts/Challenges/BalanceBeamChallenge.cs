@@ -1,6 +1,6 @@
 using UnityEngine;
-using Survivor.Challenges;
 using TMPro;
+using Survivor.Challenges;
 
 namespace Survivor.Challenges
 {

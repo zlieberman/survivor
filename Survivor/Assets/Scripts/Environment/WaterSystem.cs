@@ -19,11 +19,19 @@ namespace Survivor.Environment
         public float fishMinSpeed = 2f;
         public float fishMaxSpeed = 4f;
 
+        [Header("Water Settings")]
+        public float height = 0f;
+        public float waveHeight = 0.5f;
+        public float waveSpeed = 1f;
+        public float waveScale = 1f;
+
         private List<Fish> activeFish = new List<Fish>();
 
         private void Start()
         {
             SpawnFish();
+            // Initialize water system
+            transform.position = new Vector3(0, height, 0);
         }
 
         private void SpawnFish()
@@ -80,6 +88,12 @@ namespace Survivor.Environment
                 rb.drag = 0f;
                 rb.angularDrag = 0.05f; // Default Unity value
             }
+        }
+
+        private void Update()
+        {
+            // Update water animation
+            // This is a placeholder - you'll want to implement proper water animation
         }
     }
 

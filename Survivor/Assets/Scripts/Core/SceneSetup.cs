@@ -1,100 +1,185 @@
 using UnityEngine;
+using Survivor.Common;
 using Survivor.Core;
+using Survivor.Dialogue;
 using Survivor.Environment;
+using Survivor.Tribes;
+using Survivor.Challenges;
+using System.Collections;
+using System.Collections.Generic;
+using Survivor.Generation;
 
-public class SceneSetup : MonoBehaviour
+namespace Survivor.Core
 {
-    [Header("Core Systems")]
-    public NPCManager npcManager;
-    public GameDayManager gameDayManager;
-    public ChallengeSystem challengeSystem;
-    public VotingSystem votingSystem;
-    public DialogueSystem dialogueSystem;
-
-    [Header("Environment Systems")]
-    public IslandGenerator islandGenerator;
-    public WaterSystem waterSystem;
-    public Campfire campfire;
-
-    [Header("Environment Settings")]
-    public Vector3 islandCenter = Vector3.zero;
-    public float islandRadius = 100f;
-    public float waterHeight = 0f;
-
-    private void Awake()
+    public class SceneSetup : MonoBehaviour
     {
-        InitializeEnvironment();
-        InitializeGameSystems();
-    }
+        [Header("Core Systems")]
+        [SerializeField] private TribeManager tribeManager;
+        [SerializeField] private ChallengeSystem challengeSystem;
+        [SerializeField] private DialogueSystem dialogueSystem;
+        [SerializeField] private UIManager uiManager;
+        [SerializeField] private EnvironmentManager environmentManager;
 
-    private void InitializeEnvironment()
-    {
-        // Setup water system
-        if (waterSystem == null)
+        [Header("UI Panels")]
+        [SerializeField] private GameObject mainMenuPanel;
+        [SerializeField] private GameObject gameHudPanel;
+        [SerializeField] private GameObject dialoguePanel;
+        [SerializeField] private GameObject challengePanel;
+        [SerializeField] private GameObject pauseMenuPanel;
+
+        [Header("Player")]
+        [SerializeField] private GameObject playerPrefab;
+
+        [Header("Island Generation")]
+        [SerializeField] private ProceduralIslandGenerator islandGenerator;
+
+        private void Awake()
         {
-            GameObject waterObj = new GameObject("WaterSystem");
-            waterSystem = waterObj.AddComponent<WaterSystem>();
-            waterSystem.transform.position = new Vector3(0, waterHeight, 0);
+            InitializeSystems();
         }
 
-        // Generate island
-        if (islandGenerator == null)
+        private void InitializeSystems()
         {
-            GameObject islandObj = new GameObject("IslandGenerator");
-            islandGenerator = islandObj.AddComponent<IslandGenerator>();
-            islandGenerator.GenerateIsland();
+            Debug.Log("Initializing game systems...");
+            
+            // Initialize UI Manager
+            if (uiManager != null)
+            {
+                uiManager.Initialize(
+                    mainMenuPanel,
+                    gameHudPanel,
+                    dialoguePanel,
+                    challengePanel,
+                    pauseMenuPanel
+                );
+                Debug.Log("UI Manager initialized");
+            }
+
+            // Initialize Dialogue System
+            if (dialogueSystem != null && tribeManager != null)
+            {
+                dialogueSystem.Initialize(tribeManager);
+                Debug.Log("Dialogue System initialized");
+            }
+
+            // Initialize Environment Manager
+            if (environmentManager != null)
+            {
+                environmentManager.Initialize();
+                Debug.Log("Environment Manager initialized");
+            }
+
+            // Initialize Challenge System
+            if (challengeSystem != null)
+            {
+                challengeSystem.onChallengeStarted.AddListener(OnChallengeStarted);
+                challengeSystem.onChallengeCompleted.AddListener(OnChallengeCompleted);
+                challengeSystem.onChallengeFailed.AddListener(OnChallengeFailed);
+                Debug.Log("Challenge System initialized");
+            }
+
+            // Initialize Tribe Manager and create tribes
+            if (tribeManager != null)
+            {
+                Debug.Log("Initializing Tribe Manager...");
+                tribeManager.Initialize();
+                StartCoroutine(CreateTribesAndSpawnPlayer());
+            }
+            else
+            {
+                Debug.LogError("TribeManager reference is missing in SceneSetup!");
+            }
         }
 
-        // Setup campfire
-        if (campfire == null)
+        private IEnumerator CreateTribesAndSpawnPlayer()
         {
-            GameObject campfireObj = new GameObject("Campfire");
-            campfire = campfireObj.AddComponent<Campfire>();
-            campfire.transform.position = islandCenter + Vector3.up * 0.5f; // Place slightly above ground
-        }
-    }
-
-    private void InitializeGameSystems()
-    {
-        // Initialize NPC Manager
-        if (npcManager == null)
-        {
-            GameObject npcObj = new GameObject("NPCManager");
-            npcManager = npcObj.AddComponent<NPCManager>();
+            Debug.Log("Starting tribe creation process...");
+            yield return StartCoroutine(tribeManager.CreateTribes());
+            
+            // Wait a frame to ensure tribes are created
+            yield return null;
+            
+            // Spawn player after tribes are created
+            SpawnPlayer();
+            
+            Debug.Log("Tribe creation and player spawning completed");
         }
 
-        // Initialize Game Day Manager
-        if (gameDayManager == null)
+        private void SpawnPlayer()
         {
-            GameObject dayObj = new GameObject("GameDayManager");
-            gameDayManager = dayObj.AddComponent<GameDayManager>();
+            if (playerPrefab != null && islandGenerator != null)
+            {
+                Vector3? campPos = islandGenerator.GetCampPosition();
+                if (campPos.HasValue)
+                {
+                    Debug.Log("Spawning player at camp position..." );
+                    GameObject player = Instantiate(playerPrefab, campPos.Value, Quaternion.identity);
+                    // Get the player's tribe member component
+                    TribeMember playerTribeMember = player.GetComponent<TribeMember>();
+                    if (playerTribeMember != null)
+                    {
+                        Debug.Log($"Player spawned in tribe: {playerTribeMember.tribeName}");
+                        List<TribeMember> tribeMembers = tribeManager.GetTribeMembers(playerTribeMember.tribeName);
+                        Debug.Log($"Found {tribeMembers.Count} members in player's tribe");
+                        foreach (TribeMember member in tribeMembers)
+                        {
+                            if (!member.IsPlayer)
+                            {
+                                Vector3 spawnPos = campPos.Value + Random.insideUnitSphere * 5f;
+                                spawnPos.y = campPos.Value.y;
+                                member.transform.position = spawnPos;
+                                Debug.Log($"Spawned tribe member {member.memberName} at position {spawnPos}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Player prefab is missing TribeMember component!");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("Camp position is not available from ProceduralIslandGenerator!");
+                }
+            }
+            else
+            {
+                Debug.LogError("Player prefab or ProceduralIslandGenerator reference is missing!");
+            }
         }
 
-        // Initialize Challenge System
-        if (challengeSystem == null)
+        private void OnChallengeStarted(Challenge challenge)
         {
-            GameObject challengeObj = new GameObject("ChallengeSystem");
-            challengeSystem = challengeObj.AddComponent<ChallengeSystem>();
+            if (uiManager != null)
+            {
+                uiManager.ShowChallengeUI(challenge);
+            }
         }
 
-        // Initialize Voting System
-        if (votingSystem == null)
+        private void OnChallengeCompleted(Challenge challenge)
         {
-            GameObject voteObj = new GameObject("VotingSystem");
-            votingSystem = voteObj.AddComponent<VotingSystem>();
+            if (uiManager != null)
+            {
+                uiManager.HideChallengeUI();
+            }
         }
 
-        // Initialize Dialogue System
-        if (dialogueSystem == null)
+        private void OnChallengeFailed(Challenge challenge)
         {
-            GameObject dialogueObj = new GameObject("DialogueSystem");
-            dialogueSystem = dialogueObj.AddComponent<DialogueSystem>();
+            if (uiManager != null)
+            {
+                uiManager.HideChallengeUI();
+            }
         }
 
-        // Link systems together
-        gameDayManager.Initialize(npcManager, challengeSystem, votingSystem);
-        challengeSystem.Initialize(npcManager);
-        votingSystem.Initialize(npcManager);
-        dialogueSystem.Initialize(npcManager);
+        private void OnDestroy()
+        {
+            if (challengeSystem != null)
+            {
+                challengeSystem.onChallengeStarted.RemoveListener(OnChallengeStarted);
+                challengeSystem.onChallengeCompleted.RemoveListener(OnChallengeCompleted);
+                challengeSystem.onChallengeFailed.RemoveListener(OnChallengeFailed);
+            }
+        }
     }
 } 

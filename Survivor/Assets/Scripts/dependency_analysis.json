@@ -1,0 +1,116 @@
+{
+    "assemblies": {
+        "Survivor.Common": {
+            "references": [],
+            "scripts": [
+                "Common/GameTypes.cs",
+                "Common/Interfaces.cs",
+                "Common/DataTypes.cs"
+            ]
+        },
+        "Survivor.Core": {
+            "references": ["Survivor.Common"],
+            "scripts": [
+                "Core/GameManager.cs",
+                "Core/ChallengeSystem.cs",
+                "Core/SceneSetup.cs",
+                "Core/GameDayManager.cs",
+                "Core/INPCManager.cs"
+            ]
+        },
+        "Survivor.UI": {
+            "references": ["Survivor.Common", "Survivor.Challenges"],
+            "scripts": [
+                "UI/UIManager.cs",
+                "UI/ChallengeButton.cs",
+                "UI/ChallengeUIManager.cs",
+                "UI/ChallengesMenuManager.cs"
+            ]
+        },
+        "Survivor.Challenges": {
+            "references": ["Survivor.Common"],
+            "scripts": [
+                "Challenges/ChallengeSystem.cs",
+                "Challenges/BalanceBeamChallenge.cs",
+                "Challenges/BalanceBeamManager.cs"
+            ]
+        },
+        "Survivor.Dialogue": {
+            "references": ["Survivor.Common", "Survivor.Core"],
+            "scripts": [
+                "Dialogue/DialogueSystem.cs"
+            ]
+        },
+        "Survivor.Environment": {
+            "references": ["Survivor.Common", "Survivor.Core"],
+            "scripts": [
+                "Environment/WaterBehavior.cs"
+            ]
+        },
+        "Survivor.Generation": {
+            "references": ["Survivor.Common", "Survivor.Core"],
+            "scripts": [
+                "Generation/ProceduralIslandGenerator.cs",
+                "Generation/IslandManager.cs"
+            ]
+        },
+        "Survivor.Tribes": {
+            "references": ["Survivor.Common", "Survivor.Core", "StarterAssets"],
+            "scripts": [
+                "Tribes/TribeManager.cs"
+            ]
+        },
+        "Survivor.Player": {
+            "references": ["Survivor.Common", "Survivor.Core", "Survivor.UI", "Survivor.Dialogue"],
+            "scripts": [
+                "Player/PlayerController.cs",
+                "Player/PlayerSwimming.cs"
+            ]
+        },
+        "Survivor.Camera": {
+            "references": ["Survivor.Common"],
+            "scripts": [
+                "Camera/CameraFollow.cs"
+            ]
+        },
+        "Survivor.Shared": {
+            "references": ["Survivor.Common"],
+            "scripts": [
+                "Shared/WaterPhysics.cs"
+            ]
+        }
+    },
+    "external_dependencies": {
+        "Unity.TextMeshPro": ["Survivor.UI", "Survivor.Challenges"],
+        "StarterAssets": ["Survivor.Tribes"]
+    },
+    "dependency_graph": {
+        "Survivor.Common": [],
+        "Survivor.Core": ["Survivor.Common"],
+        "Survivor.UI": ["Survivor.Common", "Survivor.Challenges"],
+        "Survivor.Challenges": ["Survivor.Common"],
+        "Survivor.Dialogue": ["Survivor.Common", "Survivor.Core"],
+        "Survivor.Environment": ["Survivor.Common", "Survivor.Core"],
+        "Survivor.Generation": ["Survivor.Common", "Survivor.Core"],
+        "Survivor.Tribes": ["Survivor.Common", "Survivor.Core"],
+        "Survivor.Player": ["Survivor.Common", "Survivor.Core", "Survivor.UI", "Survivor.Dialogue"],
+        "Survivor.Camera": ["Survivor.Common"],
+        "Survivor.Shared": ["Survivor.Common"]
+    },
+    "circular_dependencies": [],
+    "notes": {
+        "base_assembly": "Survivor.Common",
+        "core_assembly": "Survivor.Core",
+        "feature_assemblies": [
+            "Survivor.UI",
+            "Survivor.Challenges",
+            "Survivor.Dialogue",
+            "Survivor.Environment",
+            "Survivor.Generation",
+            "Survivor.Tribes",
+            "Survivor.Player",
+            "Survivor.Camera",
+            "Survivor.Shared"
+        ]
+    }
+} 

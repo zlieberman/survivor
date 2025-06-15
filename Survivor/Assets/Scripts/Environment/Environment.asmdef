@@ -1,0 +1,17 @@
+{
+    "name": "Survivor.Environment",
+    "rootNamespace": "Survivor.Environment",
+    "references": [
+        "Survivor.Common",
+        "Survivor.Shared"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

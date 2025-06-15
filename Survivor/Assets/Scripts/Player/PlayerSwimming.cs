@@ -1,86 +1,74 @@
 using UnityEngine;
+using Survivor.Shared;
 
 namespace Survivor.Player
 {
-    public class PlayerSwimming : MonoBehaviour
+    [RequireComponent(typeof(Rigidbody))]
+    public class PlayerSwimming : MonoBehaviour, IWaterInteractable
     {
+        [Header("Swimming Settings")]
+        public float swimSpeed = 5f;
+        public float swimAcceleration = 10f;
+        public float waterDrag = 1f;
+        public float waterAngularDrag = 0.5f;
+
+        private Rigidbody rb;
         private bool isInWater = false;
         private float waterHeight = 0f;
-        private CharacterController characterController;
-        private float originalGravity;
-        private float swimSpeed = 3f;
-        private float swimUpSpeed = 2f;
+        private float originalDrag;
+        private float originalAngularDrag;
 
-        private void Start()
+        private void Awake()
         {
-            characterController = GetComponent<CharacterController>();
-            if (characterController == null)
-            {
-                Debug.LogError("PlayerSwimming requires a CharacterController component!");
-            }
+            rb = GetComponent<Rigidbody>();
+            originalDrag = rb.drag;
+            originalAngularDrag = rb.angularDrag;
         }
 
-        public void EnterWater(float height)
+        public void OnEnterWater(float waterHeight)
         {
             isInWater = true;
-            waterHeight = height;
-            
-            // Disable normal gravity
-            if (characterController != null)
-            {
-                characterController.enabled = false;
-            }
+            this.waterHeight = waterHeight;
+            rb.drag = waterDrag;
+            rb.angularDrag = waterAngularDrag;
         }
 
-        public void ExitWater()
+        public void OnExitWater()
         {
             isInWater = false;
-            
-            // Re-enable normal movement
-            if (characterController != null)
+            rb.drag = originalDrag;
+            rb.angularDrag = originalAngularDrag;
+        }
+
+        public void OnStayInWater(float waterHeight, float buoyancyForce, float dragForce)
+        {
+            // Apply buoyancy force
+            float depth = waterHeight - transform.position.y;
+            if (depth > 0)
             {
-                characterController.enabled = true;
+                Vector3 buoyancy = Vector3.up * buoyancyForce * depth;
+                rb.AddForce(buoyancy, ForceMode.Acceleration);
             }
+
+            // Apply drag
+            rb.AddForce(-rb.velocity * dragForce, ForceMode.Acceleration);
         }
 
         private void Update()
         {
             if (isInWater)
             {
-                HandleSwimming();
-            }
-        }
+                // Handle swimming input
+                float horizontal = Input.GetAxis("Horizontal");
+                float vertical = Input.GetAxis("Vertical");
 
-        private void HandleSwimming()
-        {
-            // Get input
-            float horizontal = Input.GetAxis("Horizontal");
-            float vertical = Input.GetAxis("Vertical");
-            bool jumpPressed = Input.GetButton("Jump");
-
-            // Calculate movement
-            Vector3 moveDirection = new Vector3(horizontal, 0, vertical);
-            if (moveDirection.magnitude > 1f)
-            {
-                moveDirection.Normalize();
+                Vector3 swimDirection = new Vector3(horizontal, 0, vertical).normalized;
+                if (swimDirection.magnitude > 0.1f)
+                {
+                    // Apply swimming force
+                    rb.AddForce(swimDirection * swimSpeed * swimAcceleration, ForceMode.Acceleration);
+                }
             }
-
-            // Apply swimming movement
-            Vector3 movement = moveDirection * swimSpeed * Time.deltaTime;
-            
-            // Handle vertical movement
-            if (jumpPressed)
-            {
-                movement.y = swimUpSpeed * Time.deltaTime;
-            }
-            else if (transform.position.y > waterHeight)
-            {
-                // Sink if not swimming up
-                movement.y = -swimSpeed * 0.5f * Time.deltaTime;
-            }
-
-            // Move the player
-            transform.position += movement;
         }
     }
 } 

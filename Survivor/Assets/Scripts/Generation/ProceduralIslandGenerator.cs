@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using Survivor.Environment;
+using Survivor.Shared;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -618,6 +619,11 @@ namespace Survivor.Generation
         public float IslandRadius
         {
             get { return terrainSize * 0.4f; } // Match the radius used in generation
+        }
+
+        public Vector3? GetCampPosition()
+        {
+            return campPosition;
         }
     }
 } 

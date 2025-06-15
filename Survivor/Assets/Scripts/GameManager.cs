@@ -159,7 +159,7 @@ public class GameManager : MonoBehaviour
 
         // Wait for NavMesh to be ready
         Debug.Log("Waiting for NavMesh to be ready...");
-        float timeout = 10f;
+        float timeout = 20f;
         float elapsed = 0f;
         bool navMeshReady = false;
 
@@ -168,21 +168,30 @@ public class GameManager : MonoBehaviour
             if (campGenerator.CampSpawnPoint != null)
             {
                 NavMeshHit hit;
-                if (NavMesh.SamplePosition(campGenerator.CampSpawnPoint.position, out hit, 1.0f, NavMesh.AllAreas))
+                if (NavMesh.SamplePosition(campGenerator.CampSpawnPoint.position, out hit, 2.0f, NavMesh.AllAreas))
                 {
                     navMeshReady = true;
-                    Debug.Log("NavMesh is ready at camp position");
+                    Debug.Log($"NavMesh is ready at camp position: {hit.position}");
                     break;
                 }
+                else
+                {
+                    Debug.Log($"NavMesh not found at position: {campGenerator.CampSpawnPoint.position}, trying again...");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("CampSpawnPoint is null, waiting...");
             }
             elapsed += Time.deltaTime;
-            yield return null;
+            yield return new WaitForSeconds(0.5f);
         }
 
         if (!navMeshReady)
         {
-            Debug.LogError("NavMesh is not ready at camp position!");
-            yield break;
+            Debug.LogError($"NavMesh is not ready at camp position after {timeout} seconds!");
+            // Try to spawn player anyway, as the NavMesh might still work
+            Debug.Log("Attempting to spawn player despite NavMesh warning...");
         }
 
         // Spawn player
