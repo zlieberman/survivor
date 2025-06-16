@@ -1,10 +1,9 @@
 {
-    "name": "Survivor.Generation",
-    "rootNamespace": "Survivor.Generation",
+    "name": "Survivor.Environment.Shared",
+    "rootNamespace": "Survivor.Environment",
     "references": [
         "Survivor.Common",
-        "Survivor.Shared",
-        "Unity.AI.Navigation"
+        "Survivor.Shared"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

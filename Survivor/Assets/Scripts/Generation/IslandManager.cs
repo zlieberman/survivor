@@ -1,13 +1,13 @@
 using UnityEngine;
 using System.Collections;
 using UnityEngine.AI;
-using Survivor.Generation;
+using Survivor.Shared;
 
 namespace Survivor.Generation
 {
     public class IslandManager : MonoBehaviour
     {
-        private ProceduralIslandGenerator islandGenerator;
+        private IIslandGenerator islandGenerator;
         private CampGenerator campGenerator;
         private bool isGenerating = false;
 

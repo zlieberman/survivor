@@ -1,7 +1,7 @@
 using UnityEngine;
 using Survivor.Shared;
 
-namespace Survivor.Environment
+namespace Survivor.Generation
 {
     public class WaterBehavior : MonoBehaviour
     {

@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
-using Survivor.Environment;
 using Survivor.Shared;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,7 +12,7 @@ namespace Survivor.Generation
     [DefaultExecutionOrder(-100)] // This makes the script run before default time
     [RequireComponent(typeof(Terrain))]
     [RequireComponent(typeof(TerrainCollider))]
-    public class ProceduralIslandGenerator : MonoBehaviour
+    public class ProceduralIslandGenerator : MonoBehaviour, IIslandGenerator
     {
         [System.Serializable]
         public class VegetationSettings
