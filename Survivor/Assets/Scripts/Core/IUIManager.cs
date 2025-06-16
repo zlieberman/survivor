@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Survivor.Challenges;
-using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Core
 {

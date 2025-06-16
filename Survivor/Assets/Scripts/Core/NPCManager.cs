@@ -1,8 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
-using Survivor.Tribes;
 using Survivor.Characters;
+using Survivor.Shared;
 
 namespace Survivor.Core
 {
@@ -338,7 +338,7 @@ namespace Survivor.Core
 
             Character character = new Character();
             character.CharacterName = npcData.name;
-            character.Stats = new CharacterStats
+            character.Stats = new Survivor.Shared.CharacterStats
             {
                 perception = npcData.loyalty,
                 deception = npcData.sneakiness,

@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using System.Threading;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
+using Survivor.Characters;
 
 namespace Survivor.Characters.Dialogue
 {
@@ -224,11 +225,89 @@ namespace Survivor.Characters.Dialogue
                 if (!npcChatHistories.ContainsKey(npcName))
                 {
                     npcChatHistories[npcName] = new List<ChatMessage>();
+                    
+                    // Get tribe information
+                    string tribeName = currentInteractable.TribeName;
+                    var tribeManager = FindObjectOfType<TribeManager>();
+                    var player = tribeManager?.GetPlayer();
+                    var tribeMembers = tribeManager?.GetTribeMembers(tribeName) ?? new List<Character>();
+                    
+                    // Build tribe context
+                    string tribeContext = $"You are {npcName}, a character in a game. You are part of the {tribeName} tribe. ";
+                    
+                    // Add player context if available
+                    if (player != null)
+                    {
+                        tribeContext += $"The player is {player.CharacterName}, also in your tribe. ";
+                        tribeContext += $"The player's stats are: ";
+                        tribeContext += $"Perception: {player.Stats.perception}, ";
+                        tribeContext += $"Deception: {player.Stats.deception}, ";
+                        tribeContext += $"Persuasion: {player.Stats.persuasion}, ";
+                        tribeContext += $"Puzzle Solving: {player.Stats.puzzleSolving}, ";
+                        tribeContext += $"Swimming: {player.Stats.swimming}, ";
+                        tribeContext += $"Speed: {player.Stats.speed}, ";
+                        tribeContext += $"Strength: {player.Stats.strength}, ";
+                        tribeContext += $"Agility: {player.Stats.agility}, ";
+                        tribeContext += $"Intelligence: {player.Stats.intelligence}, ";
+                        tribeContext += $"Stamina: {player.Stats.stamina}, ";
+                        tribeContext += $"Charisma: {player.Stats.charisma}, ";
+                        tribeContext += $"Honesty: {player.Stats.honesty}, ";
+                        tribeContext += $"Trust: {player.Stats.trust}, ";
+                        tribeContext += $"Honor: {player.Stats.honor}. ";
+                    }
+                    
+                    // Add other tribe members context
+                    if (tribeMembers.Count > 0)
+                    {
+                        tribeContext += "Other members of your tribe are: ";
+                        foreach (var member in tribeMembers)
+                        {
+                            if (member != player && member != currentInteractable)
+                            {
+                                tribeContext += $"{member.CharacterName} (";
+                                tribeContext += $"Perception: {member.Stats.perception}, ";
+                                tribeContext += $"Deception: {member.Stats.deception}, ";
+                                tribeContext += $"Persuasion: {member.Stats.persuasion}, ";
+                                tribeContext += $"Puzzle Solving: {member.Stats.puzzleSolving}, ";
+                                tribeContext += $"Swimming: {member.Stats.swimming}, ";
+                                tribeContext += $"Speed: {member.Stats.speed}, ";
+                                tribeContext += $"Strength: {member.Stats.strength}, ";
+                                tribeContext += $"Agility: {member.Stats.agility}, ";
+                                tribeContext += $"Intelligence: {member.Stats.intelligence}, ";
+                                tribeContext += $"Stamina: {member.Stats.stamina}, ";
+                                tribeContext += $"Charisma: {member.Stats.charisma}, ";
+                                tribeContext += $"Honesty: {member.Stats.honesty}, ";
+                                tribeContext += $"Trust: {member.Stats.trust}, ";
+                                tribeContext += $"Honor: {member.Stats.honor}), ";
+                            }
+                        }
+                        tribeContext = tribeContext.TrimEnd(',', ' ') + ". ";
+                    }
+                    
+                    // Add your own stats
+                    tribeContext += $"Your stats are: ";
+                    tribeContext += $"Perception: {currentInteractable.Stats.perception}, ";
+                    tribeContext += $"Deception: {currentInteractable.Stats.deception}, ";
+                    tribeContext += $"Persuasion: {currentInteractable.Stats.persuasion}, ";
+                    tribeContext += $"Puzzle Solving: {currentInteractable.Stats.puzzleSolving}, ";
+                    tribeContext += $"Swimming: {currentInteractable.Stats.swimming}, ";
+                    tribeContext += $"Speed: {currentInteractable.Stats.speed}, ";
+                    tribeContext += $"Strength: {currentInteractable.Stats.strength}, ";
+                    tribeContext += $"Agility: {currentInteractable.Stats.agility}, ";
+                    tribeContext += $"Intelligence: {currentInteractable.Stats.intelligence}, ";
+                    tribeContext += $"Stamina: {currentInteractable.Stats.stamina}, ";
+                    tribeContext += $"Charisma: {currentInteractable.Stats.charisma}, ";
+                    tribeContext += $"Honesty: {currentInteractable.Stats.honesty}, ";
+                    tribeContext += $"Trust: {currentInteractable.Stats.trust}, ";
+                    tribeContext += $"Honor: {currentInteractable.Stats.honor}. ";
+                    
+                    tribeContext += "Respond naturally and concisely to the player's messages, taking into account your tribe members' stats and your own stats.";
+                    
                     // Add system message for new conversations
                     npcChatHistories[npcName].Add(new ChatMessage 
                     { 
                         role = "system", 
-                        content = $"You are {npcName}, a character in a game. Respond naturally and concisely to the player's messages." 
+                        content = tribeContext
                     });
                 }
 

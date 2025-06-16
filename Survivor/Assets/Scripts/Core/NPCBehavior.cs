@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
-using Survivor.Tribes;
 using Survivor.Characters;
 
 namespace Survivor.Core

@@ -6,9 +6,8 @@ using UnityEngine.Events;
 using Newtonsoft.Json;
 using System.Net.Http;
 using System.Text;
-using Survivor.Tribes;
-using Survivor.Challenges;
 using Survivor.Characters;
+using Survivor.Challenges;
 
 namespace Survivor.Core
 {

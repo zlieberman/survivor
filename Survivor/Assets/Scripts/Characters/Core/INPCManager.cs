@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using Survivor.Characters;
 
-namespace Survivor.Tribes
+namespace Survivor.Characters
 {
     public interface INPCManager
     {

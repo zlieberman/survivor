@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Survivor.Characters;
 
-namespace Survivor.Tribes
+namespace Survivor.Characters
 {
     public interface ITribeManager
     {

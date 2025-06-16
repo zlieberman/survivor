@@ -3,7 +3,7 @@ using System;
 using UnityEngine.Events;
 using System.Collections;
 using System.Linq;
-using Survivor.Tribes;
+using Survivor.Characters;
 using Survivor.Challenges;
 
 namespace Survivor.Core

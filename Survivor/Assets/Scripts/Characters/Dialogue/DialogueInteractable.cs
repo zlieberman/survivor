@@ -9,9 +9,14 @@ namespace Survivor.Characters.Dialogue
         [Header("Dialogue Settings")]
         [SerializeField] private string displayName = "NPC";
         [SerializeField] private string dialogueId = "default";
+        [SerializeField] private string tribeName = "DefaultTribe";
+        [SerializeField] private Survivor.Shared.CharacterStats stats = new Survivor.Shared.CharacterStats();
 
         private IDialogueSystem dialogueSystem;
         private bool isPlayerInRange = false;
+
+        public string TribeName => tribeName;
+        public Survivor.Shared.CharacterStats Stats => stats;
 
         private void Start()
         {

@@ -12,7 +12,7 @@ namespace Survivor.Characters
         [SerializeField] protected string characterName;
         [SerializeField] protected string tribeName;
         [SerializeField] protected bool isPlayer;
-        [SerializeField] protected CharacterStats stats;
+        [SerializeField] protected Survivor.Shared.CharacterStats stats;
         [SerializeField] protected bool isInChallenge = false;
         [SerializeField] protected Dictionary<string, float> Relationships = new Dictionary<string, float>();
 
@@ -25,14 +25,18 @@ namespace Survivor.Characters
         public string TribeName 
         { 
             get => tribeName;
-            set => tribeName = value;
+            set 
+            {
+                Debug.Log($"[Character] Setting tribe name for {gameObject.name} from '{tribeName}' to '{value}'");
+                tribeName = value;
+            }
         }
         public bool IsPlayer 
         { 
             get => isPlayer;
             set => isPlayer = value;
         }
-        public CharacterStats Stats 
+        public Survivor.Shared.CharacterStats Stats 
         { 
             get => stats;
             set => stats = value;
@@ -83,7 +87,7 @@ namespace Survivor.Characters
 
         public virtual void Initialize(string name, string tribe, bool isPlayerCharacter, int id)
         {
-            Debug.Log($"[Character] Initialize called for {gameObject.name} with name: {name}");
+            Debug.Log($"[Character] Initialize called for {gameObject.name} with name: {name}, tribe: {tribe}, isPlayer: {isPlayerCharacter}");
             characterName = name;
             tribeName = tribe;
             isPlayer = isPlayerCharacter;
@@ -92,7 +96,7 @@ namespace Survivor.Characters
             if (stats == null)
             {
                 Debug.Log($"[Character] Creating new stats for {gameObject.name}");
-                stats = new CharacterStats();
+                stats = new Survivor.Shared.CharacterStats();
             }
             else
             {
@@ -108,6 +112,8 @@ namespace Survivor.Characters
             {
                 CreateNameTag();
             }
+
+            Debug.Log($"[Character] Initialization complete for {gameObject.name}. Current values - Name: {characterName}, Tribe: {tribeName}, IsPlayer: {isPlayer}");
         }
 
         public void UpdateRelationship(string otherCharacterName, float delta)

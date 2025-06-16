@@ -1,7 +1,6 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
-using Survivor.Tribes;
 using Survivor.Characters;
 
 namespace Survivor.Challenges

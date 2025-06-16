@@ -6,5 +6,7 @@ namespace Survivor.Shared
         string GetDisplayName();
         void OnDialogueStart();
         void OnDialogueEnd();
+        string TribeName { get; }
+        CharacterStats Stats { get; }
     }
 } 

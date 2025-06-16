@@ -5,25 +5,25 @@ using UnityEngine.AI;
 using StarterAssets;
 using System.Linq;
 using Survivor.Generation;
-using Survivor.Characters;
 
-namespace Survivor.Tribes
+namespace Survivor.Characters
 {
+    [DefaultExecutionOrder(-50)]
     public class TribeManager : MonoBehaviour, ITribeManager, INPCManager
     {
         public static TribeManager Instance { get; private set; }
 
         [Header("Spawn Settings")]
-        public float spawnRadius = 10f; // Increased spawn radius
-        public float minSpawnDistance = 2.5f; // Increased minimum distance between NPCs
-        public int maxSpawnAttempts = 30; // Maximum attempts to find valid spawn position
+        public float spawnRadius = 10f;
+        public float minSpawnDistance = 2.5f;
+        public int maxSpawnAttempts = 30;
 
         [Header("Tribe Settings")]
-        public string tribeAName = "TribeA";
-        public string tribeBName = "TribeB";
+        public string tribeAName = "Tribe A";
+        public string tribeBName = "Tribe B";
 
         [Header("Prefabs")]
-        public GameObject npcPrefab; // Reference to the NPC prefab to spawn
+        public GameObject npcPrefab;
 
         private Dictionary<string, List<Character>> tribes = new Dictionary<string, List<Character>>();
         private List<Character> tribeMembers = new List<Character>();
@@ -42,7 +42,7 @@ namespace Survivor.Tribes
                 Destroy(gameObject);
             }
 
-            // Find the camp generator
+            Debug.Log($"[TribeManager] Awake - tribeAName: {tribeAName}, tribeBName: {tribeBName}");
             campGenerator = FindObjectOfType<CampGenerator>();
             if (campGenerator == null)
             {
@@ -54,12 +54,13 @@ namespace Survivor.Tribes
         {
             if (isInitialized) return;
 
+            Debug.Log($"[TribeManager] Initializing with tribe names - A: {tribeAName}, B: {tribeBName}");
             tribes.Clear();
             tribes[tribeAName] = new List<Character>();
             tribes[tribeBName] = new List<Character>();
 
             isInitialized = true;
-            Debug.Log("TribeManager initialized");
+            Debug.Log("[TribeManager] Initialization complete");
         }
 
         public IEnumerator CreateTribes()
@@ -70,17 +71,13 @@ namespace Survivor.Tribes
                 yield break;
             }
 
-            // Wait for camp to be placed
             while (campGenerator == null || !campGenerator.CampPlaced)
             {
                 Debug.Log("Waiting for camp to be placed...");
                 yield return new WaitForSeconds(0.5f);
             }
 
-            // Create Tribe A (Player + 8 NPCs)
             yield return StartCoroutine(CreateTribe(tribeAName, true));
-
-            // Create Tribe B (9 NPCs) but don't spawn them yet
             yield return StartCoroutine(CreateTribe(tribeBName, false, false));
 
             Debug.Log("Tribes created successfully");
@@ -91,32 +88,24 @@ namespace Survivor.Tribes
             Debug.Log($"Starting to create tribe: {tribeName}");
             List<Character> tribeMembers = new List<Character>();
             
-            // Create NPCs for the tribe
-            int npcCount = includePlayer ? 8 : 9; // 8 NPCs + player for tribe A, 9 NPCs for tribe B
+            int npcCount = includePlayer ? 8 : 9;
             Debug.Log($"Creating {npcCount} members for tribe {tribeName}");
             
             for (int i = 0; i < npcCount; i++)
             {
-                // Find a valid spawn position
                 Vector3 spawnPosition = FindValidSpawnPosition(tribeMembers);
                 
-                // Create NPC GameObject
                 GameObject npcObject = Instantiate(npcPrefab, spawnPosition, Quaternion.identity);
                 Character character = npcObject.GetComponent<Character>();
                 
                 if (character != null)
                 {
-                    // Get a random name from NPCGenerator
                     string memberName = NPCGenerator.Instance.GenerateRandomName();
-                    
-                    // Initialize character
                     character.Initialize(memberName, tribeName, includePlayer && i == 0, i);
                     
-                    // Add to tribe
                     tribes[tribeName].Add(character);
                     tribeMembers.Add(character);
 
-                    // Only spawn NPCs for TribeA (player's tribe) or if explicitly requested
                     if (!spawnNPCs || (tribeName != tribeAName && !character.IsPlayer))
                     {
                         npcObject.SetActive(false);
@@ -129,7 +118,7 @@ namespace Survivor.Tribes
                     Debug.LogError($"Failed to get Character component for NPC in tribe {tribeName}");
                 }
                 
-                yield return null; // Wait one frame between each NPC creation
+                yield return null;
             }
             
             Debug.Log($"Finished creating tribe {tribeName} with {tribeMembers.Count} members");
@@ -151,7 +140,6 @@ namespace Survivor.Tribes
 
             while (!validPosition && attempts < maxSpawnAttempts)
             {
-                // Generate random position within spawn radius
                 float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
                 float distance = Random.Range(minSpawnDistance, spawnRadius);
                 position = campCenter + new Vector3(
@@ -160,14 +148,12 @@ namespace Survivor.Tribes
                     Mathf.Sin(angle) * distance
                 );
 
-                // Get the terrain height at this position
                 Terrain terrain = Terrain.activeTerrain;
                 if (terrain != null)
                 {
                     position.y = terrain.SampleHeight(position);
                 }
 
-                // Check if position is valid (not too close to other NPCs)
                 validPosition = true;
                 foreach (Character member in existingMembers)
                 {
@@ -181,7 +167,6 @@ namespace Survivor.Tribes
                 attempts++;
             }
 
-            // If no valid position found, return a position at the edge of the spawn radius
             if (!validPosition)
             {
                 float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
@@ -191,7 +176,6 @@ namespace Survivor.Tribes
                     Mathf.Sin(angle) * spawnRadius
                 );
 
-                // Get the terrain height at this position
                 Terrain terrain = Terrain.activeTerrain;
                 if (terrain != null)
                 {
@@ -204,7 +188,14 @@ namespace Survivor.Tribes
 
         public List<Character> GetTribeMembers(string tribeName)
         {
-            return tribes.ContainsKey(tribeName) ? tribes[tribeName] : new List<Character>();
+            Debug.Log($"[TribeManager] Getting members for tribe: {tribeName}");
+            if (tribes.ContainsKey(tribeName))
+            {
+                Debug.Log($"[TribeManager] Found {tribes[tribeName].Count} members in tribe {tribeName}");
+                return tribes[tribeName];
+            }
+            Debug.LogWarning($"[TribeManager] No tribe found with name: {tribeName}");
+            return new List<Character>();
         }
 
         public Character GetPlayer()
@@ -260,7 +251,6 @@ namespace Survivor.Tribes
             return tribeMembers.Where(member => member != null && member.IsInChallenge).ToList();
         }
 
-        // INPCManager implementation
         public Character GetTribeMember(string memberName)
         {
             return tribeMembers.FirstOrDefault(member => member.CharacterName == memberName);
@@ -288,7 +278,6 @@ namespace Survivor.Tribes
             }
         }
 
-        // INPCManager implementation
         List<string> INPCManager.GetActiveNPCs()
         {
             return tribeMembers
@@ -297,7 +286,6 @@ namespace Survivor.Tribes
                 .ToList();
         }
 
-        // ITribeManager implementation
         IEnumerable<string> ITribeManager.GetActiveNPCs()
         {
             return tribeMembers
@@ -312,7 +300,6 @@ namespace Survivor.Tribes
 
             if (npc1 != null && npc2 != null)
             {
-                // Update relationship in both directions
                 npc1.UpdateRelationship(npc2Name, delta);
                 npc2.UpdateRelationship(npc1Name, delta);
             }
@@ -320,18 +307,15 @@ namespace Survivor.Tribes
 
         public bool CanStartChallenge(Vector3 position)
         {
-            // Check if there are enough active NPCs nearby to start a challenge
             var nearbyNPCs = tribeMembers
                 .Where(member => member != null && 
                                member.gameObject.activeInHierarchy && 
                                Vector3.Distance(member.transform.position, position) <= spawnRadius)
                 .ToList();
 
-            // Require at least 2 NPCs to start a challenge
             return nearbyNPCs.Count >= 2;
         }
 
-        // New method to spawn NPCs from a specific tribe
         public void SpawnTribeNPCs(string tribeName)
         {
             if (!tribes.ContainsKey(tribeName))
@@ -344,7 +328,6 @@ namespace Survivor.Tribes
             {
                 if (!member.IsPlayer && !member.gameObject.activeInHierarchy)
                 {
-                    // Find a valid spawn position
                     Vector3 spawnPosition = FindValidSpawnPosition(tribes[tribeName]);
                     member.transform.position = spawnPosition;
                     member.gameObject.SetActive(true);

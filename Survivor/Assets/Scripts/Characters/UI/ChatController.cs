@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using Survivor.Shared.Interfaces;
 using Survivor.Characters.Dialogue;
+using System.Text.RegularExpressions;
 
 namespace Survivor.Characters.UI
 {
@@ -40,6 +41,7 @@ namespace Survivor.Characters.UI
             if (inputField != null)
             {
                 inputField.onValueChanged.AddListener(OnInputValueChanged);
+                inputField.onValidateInput += ValidateInput;
             }
 
             if (sendButton != null)
@@ -87,6 +89,16 @@ namespace Survivor.Characters.UI
         {
             if (sendButton != null)
                 sendButton.interactable = !string.IsNullOrWhiteSpace(value) && !isWaitingForResponse;
+        }
+
+        private char ValidateInput(string text, int charIndex, char addedChar)
+        {
+            // Only allow printable characters and basic punctuation
+            if (char.IsControl(addedChar) || !char.IsLetterOrDigit(addedChar) && !char.IsPunctuation(addedChar) && !char.IsWhiteSpace(addedChar))
+            {
+                return '\0'; // Return null character to prevent the input
+            }
+            return addedChar;
         }
 
         public void SetCurrentNPC(string npcName)
@@ -271,6 +283,7 @@ namespace Survivor.Characters.UI
             if (inputField != null)
             {
                 inputField.onValueChanged.RemoveListener(OnInputValueChanged);
+                inputField.onValidateInput -= ValidateInput;
             }
 
             if (sendButton != null)

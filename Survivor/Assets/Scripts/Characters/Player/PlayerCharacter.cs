@@ -3,6 +3,7 @@ using Survivor.Characters.Dialogue;
 
 namespace Survivor.Characters
 {
+    [DefaultExecutionOrder(-25)] // Run after TribeManager but before most other scripts
     public class PlayerCharacter : Character
     {
         private CharacterInteractionManager interactionManager;
@@ -11,6 +12,7 @@ namespace Survivor.Characters
 
         protected override void Awake()
         {
+            Debug.Log("[PlayerCharacter] Awake called");
             base.Awake();
             isPlayer = true;
             
@@ -56,8 +58,16 @@ namespace Survivor.Characters
 
         public override void Initialize(string name, string tribe, bool isPlayerCharacter, int id)
         {
+            Debug.Log($"[PlayerCharacter] Initialize called with name: {name}, tribe: {tribe}, isPlayer: {isPlayerCharacter}");
+            
+            // Set tribe name before base initialization
+            TribeName = tribe;
+            Debug.Log($"[PlayerCharacter] Set tribe name to: {TribeName}");
+            
+            // Call base initialization
             base.Initialize(name, tribe, true, id); // Force isPlayer to true for PlayerCharacter
-            Debug.Log($"[PlayerCharacter] Initialized player: {name} from tribe {tribe}");
+            
+            Debug.Log($"[PlayerCharacter] After initialization - Name: {CharacterName}, Tribe: {TribeName}, IsPlayer: {IsPlayer}");
         }
 
         private void OnDestroy()

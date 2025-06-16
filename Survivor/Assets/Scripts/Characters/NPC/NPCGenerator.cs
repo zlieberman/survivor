@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using Survivor.Shared;
 
 namespace Survivor.Characters
 {
@@ -121,9 +122,9 @@ namespace Survivor.Characters
             }
         }
 
-        public CharacterStats GenerateRandomStats()
+        public Survivor.Shared.CharacterStats GenerateRandomStats()
         {
-            CharacterStats stats = new CharacterStats();
+            Survivor.Shared.CharacterStats stats = new Survivor.Shared.CharacterStats();
             
             // Generate stats using normal distribution
             stats.perception = GenerateNormalRandom(50, 30);
