@@ -13,15 +13,64 @@ namespace Survivor.Characters
         [SerializeField] private LayerMask playerLayer;
 
         private UnityEngine.CharacterController controller;
+        private bool hasGeneratedStats = false;
 
         protected override void Awake()
         {
+            Debug.Log("[NPCCharacter] Awake called");
             base.Awake();
+            
             // Get character controller
             controller = GetComponent<UnityEngine.CharacterController>();
+            
             // Set NPC-specific properties
             isPlayer = false;
+
+            // Ensure NPCGenerator exists
+            if (NPCGenerator.Instance == null)
+            {
+                Debug.LogError("[NPCCharacter] NPCGenerator.Instance is null!");
+                return;
+            }
+
+            // Generate random name and stats
+            if (string.IsNullOrEmpty(characterName))
+            {
+                Debug.Log("[NPCCharacter] Generating random name");
+                characterName = NPCGenerator.Instance.GenerateRandomName();
+                Debug.Log($"[NPCCharacter] Generated name: {characterName}");
+            }
+            
+            if (!hasGeneratedStats)
+            {
+                Debug.Log("[NPCCharacter] Generating random stats");
+                stats = NPCGenerator.Instance.GenerateRandomStats();
+                hasGeneratedStats = true;
+                Debug.Log($"[NPCCharacter] Generated stats - Speed: {stats.speed}, Strength: {stats.strength}, etc.");
+            }
+
+            // Update name tag if it exists
+            if (nameTag != null)
+            {
+                nameTag.SetName(characterName);
+            }
+
             Debug.Log($"[NPCCharacter] Initialized NPC: {characterName}");
+        }
+
+        public override void Initialize(string name, string tribe, bool isPlayerCharacter, int id)
+        {
+            Debug.Log("[NPCCharacter] Initialize called");
+            base.Initialize(name, tribe, false, id); // Force isPlayer to false for NPCs
+
+            // Re-generate stats if they haven't been generated yet
+            if (!hasGeneratedStats && NPCGenerator.Instance != null)
+            {
+                Debug.Log("[NPCCharacter] Generating stats in Initialize");
+                stats = NPCGenerator.Instance.GenerateRandomStats();
+                hasGeneratedStats = true;
+                Debug.Log($"[NPCCharacter] Generated stats in Initialize - Speed: {stats.speed}, Strength: {stats.strength}, etc.");
+            }
         }
 
         private void Update()

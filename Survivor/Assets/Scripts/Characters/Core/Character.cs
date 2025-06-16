@@ -50,6 +50,7 @@ namespace Survivor.Characters
 
         protected virtual void Awake()
         {
+            Debug.Log($"[Character] Awake called for {gameObject.name}");
             // Initialize relationships dictionary if needed
             if (Relationships == null)
             {
@@ -65,6 +66,7 @@ namespace Survivor.Characters
 
         protected virtual void CreateNameTag()
         {
+            Debug.Log($"[Character] Creating name tag for {gameObject.name}");
             // Create name tag object
             GameObject nameTagObj = new GameObject("NameTag");
             nameTagObj.transform.SetParent(transform);
@@ -81,14 +83,20 @@ namespace Survivor.Characters
 
         public virtual void Initialize(string name, string tribe, bool isPlayerCharacter, int id)
         {
+            Debug.Log($"[Character] Initialize called for {gameObject.name} with name: {name}");
             characterName = name;
             tribeName = tribe;
             isPlayer = isPlayerCharacter;
             
-            // Initialize stats if they don't exist
+            // Only initialize stats if they don't exist and haven't been set by a derived class
             if (stats == null)
             {
+                Debug.Log($"[Character] Creating new stats for {gameObject.name}");
                 stats = new CharacterStats();
+            }
+            else
+            {
+                Debug.Log($"[Character] Using existing stats for {gameObject.name}");
             }
 
             // Set the name tag

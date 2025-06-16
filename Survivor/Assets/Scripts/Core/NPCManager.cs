@@ -17,11 +17,11 @@ namespace Survivor.Core
         public class NPCData
         {
             public string name;
-            public float loyalty;      // 0-100: Likelihood to stay loyal to alliances
-            public float sneakiness;   // 0-100: Ability to deceive and plot
-            public float charisma;     // 0-100: Influence on other NPCs
-            public float aggression;   // 0-100: Tendency to take aggressive actions
-            public Dictionary<string, float> relationships = new Dictionary<string, float>();
+            public int loyalty;      // 0-100: Likelihood to stay loyal to alliances
+            public int sneakiness;   // 0-100: Ability to deceive and plot
+            public int charisma;     // 0-100: Influence on other NPCs
+            public int aggression;   // 0-100: Tendency to take aggressive actions
+            public Dictionary<string, int> relationships = new Dictionary<string, int>();
             public List<string> alliance = new List<string>();
         }
 
@@ -41,8 +41,8 @@ namespace Survivor.Core
 
         [Header("NPC Settings")]
         public int initialNPCCount = 8;
-        public float minStatValue = 20f;
-        public float maxStatValue = 100f;
+        public int minStatValue = 20;
+        public int maxStatValue = 100;
 
         private Dictionary<string, NPCData> npcs = new Dictionary<string, NPCData>();
         private List<string> eliminatedNPCs = new List<string>();
@@ -131,6 +131,24 @@ namespace Survivor.Core
             InitializeRelationships();
         }
 
+        /// <summary>
+        /// Generates a random number from a normal distribution using the Box-Muller transform
+        /// </summary>
+        /// <param name="mean">The mean of the distribution</param>
+        /// <param name="stdDev">The standard deviation of the distribution</param>
+        /// <returns>A random number from the normal distribution</returns>
+        private int GenerateNormalRandom(int mean, int stdDev)
+        {
+            // Box-Muller transform
+            float u1 = Random.value;
+            float u2 = Random.value;
+            float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) * Mathf.Cos(2.0f * Mathf.PI * u2);
+            float randNormal = mean + stdDev * randStdNormal;
+            
+            // Clamp to 0-100 range
+            return Mathf.Clamp(Mathf.RoundToInt(randNormal), 0, 100);
+        }
+
         public NPCData CreateNPC(string name = null)
         {
             // If no name provided, get a random one
@@ -145,10 +163,10 @@ namespace Survivor.Core
             NPCData npc = new NPCData
             {
                 name = name,
-                loyalty = Random.Range(minStatValue, maxStatValue),
-                sneakiness = Random.Range(minStatValue, maxStatValue),
-                charisma = Random.Range(minStatValue, maxStatValue),
-                aggression = Random.Range(minStatValue, maxStatValue)
+                loyalty = GenerateNormalRandom(50, 30),
+                sneakiness = GenerateNormalRandom(50, 30),
+                charisma = GenerateNormalRandom(50, 30),
+                aggression = GenerateNormalRandom(50, 30)
             };
 
             npcs.Add(name, npc);
@@ -166,8 +184,8 @@ namespace Survivor.Core
                 {
                     if (npc1.name != npc2.name)
                     {
-                        // Initialize random relationship value (30-70 for balanced start)
-                        float relationshipValue = Random.Range(30f, 70f);
+                        // Initialize relationship value using normal distribution
+                        int relationshipValue = GenerateNormalRandom(50, 30);
                         npc1.relationships[npc2.name] = relationshipValue;
                     }
                 }
@@ -177,16 +195,16 @@ namespace Survivor.Core
         /// <summary>
         /// Updates relationships between NPCs based on game events
         /// </summary>
-        public void UpdateRelationship(string npc1Name, string npc2Name, float delta)
+        public void UpdateRelationship(string npc1Name, string npc2Name, int delta)
         {
             if (!npcs.ContainsKey(npc1Name) || !npcs.ContainsKey(npc2Name))
                 return;
 
             NPCData npc1 = npcs[npc1Name];
             if (!npc1.relationships.ContainsKey(npc2Name))
-                npc1.relationships[npc2Name] = 50f;
+                npc1.relationships[npc2Name] = 50;
 
-            npc1.relationships[npc2Name] = Mathf.Clamp(npc1.relationships[npc2Name] + delta, 0f, 100f);
+            npc1.relationships[npc2Name] = Mathf.Clamp(npc1.relationships[npc2Name] + delta, 0, 100);
         }
 
         public void FormAlliance(string npc1Name, string npc2Name)
@@ -254,7 +272,7 @@ namespace Survivor.Core
         }
 
         /// <summary>
-        /// Gets all eliminated NPCs in the game
+        /// Gets all eliminated NPCs
         /// </summary>
         public List<string> GetEliminatedNPCs()
         {
@@ -262,7 +280,7 @@ namespace Survivor.Core
         }
 
         /// <summary>
-        /// Gets an NPC by their player ID
+        /// Gets data for a specific NPC
         /// </summary>
         public NPCData GetNPCData(string npcName)
         {
@@ -270,15 +288,15 @@ namespace Survivor.Core
         }
 
         /// <summary>
-        /// Gets the relationship between two NPCs
+        /// Gets the relationship value between two NPCs
         /// </summary>
-        public float GetRelationship(string npc1Name, string npc2Name)
+        public int GetRelationship(string npc1Name, string npc2Name)
         {
             if (!npcs.ContainsKey(npc1Name) || !npcs.ContainsKey(npc2Name))
-                return 0f;
+                return 0;
 
             NPCData npc1 = npcs[npc1Name];
-            return npc1.relationships.ContainsKey(npc2Name) ? npc1.relationships[npc2Name] : 50f;
+            return npc1.relationships.ContainsKey(npc2Name) ? npc1.relationships[npc2Name] : 0;
         }
 
         /// <summary>
@@ -289,7 +307,8 @@ namespace Survivor.Core
             if (!npcs.ContainsKey(npc1Name) || !npcs.ContainsKey(npc2Name))
                 return false;
 
-            return npcs[npc1Name].alliance.Contains(npc2Name);
+            NPCData npc1 = npcs[npc1Name];
+            return npc1.alliance.Contains(npc2Name);
         }
 
         // Temporary name generation - replace with proper name list later
@@ -314,14 +333,14 @@ namespace Survivor.Core
                 perception = npcData.loyalty,
                 deception = npcData.sneakiness,
                 persuasion = npcData.charisma,
-                puzzleSolving = 50f, // Default value
-                swimming = 50f, // Default value
-                speed = 50f, // Default value
-                strength = 50f, // Default value
+                puzzleSolving = 50, // Default value
+                swimming = 50, // Default value
+                speed = 50, // Default value
+                strength = 50, // Default value
                 charisma = npcData.charisma,
-                honesty = 100f - npcData.sneakiness,
+                honesty = 100 - npcData.sneakiness,
                 trust = npcData.loyalty,
-                honor = 100f - npcData.aggression
+                honor = 100 - npcData.aggression
             };
             return character;
         }

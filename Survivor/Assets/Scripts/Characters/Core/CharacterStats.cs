@@ -5,19 +5,19 @@ namespace Survivor.Characters
     [System.Serializable]
     public class CharacterStats
     {
-        public float perception;
-        public float deception;
-        public float persuasion;
-        public float puzzleSolving;
-        public float swimming;
-        public float speed;
-        public float strength;
-        public float agility;
-        public float intelligence;
-        public float stamina;
-        public float charisma;
-        public float honesty;
-        public float trust;
-        public float honor;
+        public int perception;
+        public int deception;
+        public int persuasion;
+        public int puzzleSolving;
+        public int swimming;
+        public int speed;
+        public int strength;
+        public int agility;
+        public int intelligence;
+        public int stamina;
+        public int charisma;
+        public int honesty;
+        public int trust;
+        public int honor;
     }
 } 

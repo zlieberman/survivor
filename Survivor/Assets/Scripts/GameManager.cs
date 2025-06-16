@@ -102,20 +102,20 @@ public class GameManager : MonoBehaviour
         
         // Create main player stats
         mainPlayer = new CharacterStats();
-        mainPlayer.perception = Random.Range(50f, 100f);
-        mainPlayer.deception = Random.Range(50f, 100f);
-        mainPlayer.persuasion = Random.Range(50f, 100f);
-        mainPlayer.puzzleSolving = Random.Range(50f, 100f);
-        mainPlayer.swimming = Random.Range(50f, 100f);
-        mainPlayer.speed = Random.Range(50f, 100f);
-        mainPlayer.strength = Random.Range(50f, 100f);
-        mainPlayer.agility = Random.Range(50f, 100f);
-        mainPlayer.intelligence = Random.Range(50f, 100f);
-        mainPlayer.stamina = Random.Range(50f, 100f);
-        mainPlayer.charisma = Random.Range(50f, 100f);
-        mainPlayer.honesty = Random.Range(50f, 100f);
-        mainPlayer.trust = Random.Range(50f, 100f);
-        mainPlayer.honor = Random.Range(50f, 100f);
+        mainPlayer.perception = Random.Range(50, 101);
+        mainPlayer.deception = Random.Range(50, 101);
+        mainPlayer.persuasion = Random.Range(50, 101);
+        mainPlayer.puzzleSolving = Random.Range(50, 101);
+        mainPlayer.swimming = Random.Range(50, 101);
+        mainPlayer.speed = Random.Range(50, 101);
+        mainPlayer.strength = Random.Range(50, 101);
+        mainPlayer.agility = Random.Range(50, 101);
+        mainPlayer.intelligence = Random.Range(50, 101);
+        mainPlayer.stamina = Random.Range(50, 101);
+        mainPlayer.charisma = Random.Range(50, 101);
+        mainPlayer.honesty = Random.Range(50, 101);
+        mainPlayer.trust = Random.Range(50, 101);
+        mainPlayer.honor = Random.Range(50, 101);
         Debug.Log("Main player stats created");
 
         isGameInitialized = true;

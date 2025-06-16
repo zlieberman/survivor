@@ -50,11 +50,6 @@ namespace Survivor.Characters.Dialogue
         [SerializeField] private float interactionDistance = 3f;
         [SerializeField] private KeyCode interactKey = KeyCode.E;
         public float dialogueTimeout = 30f;
-        [Header("Rate Limiting")]
-        [SerializeField] private int maxRetries = 3;
-        [SerializeField] private float initialRetryDelay = 1f;
-        [SerializeField] private float maxRetryDelay = 10f;
-        [SerializeField] private float requestsPerMinute = 10f; // Conservative default
 
         [Header("OpenAI Settings")]
         [SerializeField] private string openAiApiKey = "";
@@ -89,10 +84,10 @@ namespace Survivor.Characters.Dialogue
         private ChatController chatController;
         private HttpClient httpClient;
 
-        private DateTime lastRequestTime = DateTime.MinValue;
-        private readonly SemaphoreSlim rateLimiter = new SemaphoreSlim(1, 1);
-
         private CancellationTokenSource currentDialogueCts;
+
+        // Store chat history per NPC
+        private Dictionary<string, List<ChatMessage>> npcChatHistories = new Dictionary<string, List<ChatMessage>>();
 
         public bool IsInDialogue => isInDialogue;
         public bool IsDialogueValid => isInDialogue && currentInteractable != null;
@@ -178,28 +173,6 @@ namespace Survivor.Characters.Dialogue
             }
         }
 
-        private async Task WaitForRateLimit()
-        {
-            await rateLimiter.WaitAsync();
-            try
-            {
-                var timeSinceLastRequest = DateTime.Now - lastRequestTime;
-                var minTimeBetweenRequests = TimeSpan.FromSeconds(60f / requestsPerMinute);
-                
-                if (timeSinceLastRequest < minTimeBetweenRequests)
-                {
-                    var waitTime = minTimeBetweenRequests - timeSinceLastRequest;
-                    Debug.Log($"[DialogueManager] Rate limiting: waiting {waitTime.TotalSeconds:F1} seconds");
-                    await Task.Delay(waitTime);
-                }
-                lastRequestTime = DateTime.Now;
-            }
-            finally
-            {
-                rateLimiter.Release();
-            }
-        }
-
         private void LogRequestDetails(HttpRequestMessage request, string requestBody)
         {
             Debug.Log($"[DialogueManager] Request Details:\n" +
@@ -236,108 +209,102 @@ namespace Survivor.Characters.Dialogue
             currentDialogueCts = new CancellationTokenSource();
             var ct = currentDialogueCts.Token;
 
-            int retryCount = 0;
-            float currentDelay = initialRetryDelay;
-
-            while (retryCount <= maxRetries)
+            try
             {
-                try
+                if (!IsDialogueValid)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    await WaitForRateLimit().ConfigureAwait(false);
-                    
-                    if (!IsDialogueValid)
-                    {
-                        Debug.Log("[DialogueManager] Dialogue ended while waiting for rate limit");
-                        return "Dialogue ended.";
-                    }
-
-                    Debug.Log($"[DialogueManager] Generating response for {currentInteractable.GetDisplayName()}: {playerMessage}");
-                    
-                    var messages = new[]
-                    {
-                        new ChatMessage { role = "system", content = $"You are {currentInteractable.GetDisplayName()}, a character in a game. Respond naturally and concisely to the player's messages." },
-                        new ChatMessage { role = "user", content = playerMessage }
-                    };
-
-                    var requestBody = new ChatCompletionRequest
-                    {
-                        model = openAiModel,
-                        messages = messages,
-                        temperature = temperature,
-                        max_tokens = maxTokens
-                    };
-
-                    var jsonRequest = JsonConvert.SerializeObject(requestBody);
-                    var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
-
-                    // Create request and log details
-                    var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
-                    {
-                        Content = content
-                    };
-                    LogRequestDetails(request, jsonRequest);
-
-                    var response = await httpClient.SendAsync(request, ct).ConfigureAwait(false);
-                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    LogResponseDetails(response, responseBody);
-                    
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(currentDelay);
-                        Debug.LogWarning($"[DialogueManager] Rate limited. Retrying after {retryAfter.TotalSeconds:F1} seconds");
-                        await Task.Delay(retryAfter, ct).ConfigureAwait(false);
-                        currentDelay = Math.Min(currentDelay * 2, maxRetryDelay);
-                        retryCount++;
-                        continue;
-                    }
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        Debug.LogError($"[DialogueManager] API Error: {response.StatusCode}\nResponse: {responseBody}");
-                        return "I'm having trouble connecting right now. Please try again.";
-                    }
-
-                    try
-                    {
-                        var responseObj = JsonConvert.DeserializeObject<ChatCompletionResponse>(responseBody);
-                        
-                        if (responseObj?.choices == null || responseObj.choices.Count == 0)
-                        {
-                            Debug.LogError($"[DialogueManager] Unexpected API response format: {responseBody}");
-                            return "I received an unexpected response. Please try again.";
-                        }
-
-                        string aiResponse = responseObj.choices[0].message.content;
-                        Debug.Log($"[DialogueManager] Successfully generated response: {aiResponse}");
-                        return aiResponse;
-                    }
-                    catch (JsonException e)
-                    {
-                        Debug.LogError($"[DialogueManager] Failed to parse API response: {e.Message}\nResponse: {responseBody}");
-                        return "I received an invalid response. Please try again.";
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    Debug.Log("[DialogueManager] Dialogue generation cancelled");
+                    Debug.Log("[DialogueManager] Dialogue ended while waiting for response");
                     return "Dialogue ended.";
                 }
-                catch (HttpRequestException e) when (e.Message.Contains("429"))
+
+                string npcName = currentInteractable.GetDisplayName();
+                Debug.Log($"[DialogueManager] Generating response for {npcName}: {playerMessage}");
+                
+                // Get or create chat history for this NPC
+                if (!npcChatHistories.ContainsKey(npcName))
                 {
-                    Debug.LogWarning($"[DialogueManager] Rate limited (attempt {retryCount + 1}/{maxRetries + 1}). Waiting {currentDelay:F1} seconds...");
-                    await Task.Delay(TimeSpan.FromSeconds(currentDelay), ct).ConfigureAwait(false);
-                    currentDelay = Math.Min(currentDelay * 2, maxRetryDelay);
-                    retryCount++;
+                    npcChatHistories[npcName] = new List<ChatMessage>();
+                    // Add system message for new conversations
+                    npcChatHistories[npcName].Add(new ChatMessage 
+                    { 
+                        role = "system", 
+                        content = $"You are {npcName}, a character in a game. Respond naturally and concisely to the player's messages." 
+                    });
                 }
-                catch (Exception e)
+
+                // Add user message to history
+                npcChatHistories[npcName].Add(new ChatMessage 
+                { 
+                    role = "user", 
+                    content = playerMessage 
+                });
+
+                var requestBody = new ChatCompletionRequest
                 {
-                    Debug.LogError($"[DialogueManager] Error generating response: {e.Message}\nStack trace: {e.StackTrace}");
-                    return "I'm having trouble understanding right now. Can you try again?";
+                    model = openAiModel,
+                    messages = npcChatHistories[npcName].ToArray(),
+                    temperature = temperature,
+                    max_tokens = maxTokens
+                };
+
+                var jsonRequest = JsonConvert.SerializeObject(requestBody);
+                var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+
+                // Create request and log details
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
+                {
+                    Content = content
+                };
+                LogRequestDetails(request, jsonRequest);
+
+                var response = await httpClient.SendAsync(request, ct).ConfigureAwait(false);
+                var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                LogResponseDetails(response, responseBody);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Debug.LogError($"[DialogueManager] API Error: {response.StatusCode}\nResponse: {responseBody}");
+                    return "I'm having trouble connecting right now. Please try again.";
+                }
+
+                try
+                {
+                    var responseObj = JsonConvert.DeserializeObject<ChatCompletionResponse>(responseBody);
+                    
+                    if (responseObj?.choices == null || responseObj.choices.Count == 0)
+                    {
+                        Debug.LogError($"[DialogueManager] Unexpected API response format: {responseBody}");
+                        return "I received an unexpected response. Please try again.";
+                    }
+
+                    string aiResponse = responseObj.choices[0].message.content;
+                    
+                    // Add AI response to chat history
+                    npcChatHistories[npcName].Add(new ChatMessage 
+                    { 
+                        role = "assistant", 
+                        content = aiResponse 
+                    });
+
+                    Debug.Log($"[DialogueManager] Successfully generated response: {aiResponse}");
+                    return aiResponse;
+                }
+                catch (JsonException e)
+                {
+                    Debug.LogError($"[DialogueManager] Failed to parse API response: {e.Message}\nResponse: {responseBody}");
+                    return "I received an invalid response. Please try again.";
                 }
             }
-
-            return "I'm getting too many requests right now. Please try again in a moment.";
+            catch (OperationCanceledException)
+            {
+                Debug.Log("[DialogueManager] Dialogue generation cancelled");
+                return "Dialogue ended.";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[DialogueManager] Error generating response: {e.Message}\nStack trace: {e.StackTrace}");
+                return "I'm having trouble understanding right now. Can you try again?";
+            }
         }
 
         public void StartDialogue(string npcName, string initialMessage)
@@ -420,7 +387,6 @@ namespace Survivor.Characters.Dialogue
             }
             currentDialogueCts?.Dispose();
             httpClient?.Dispose();
-            rateLimiter?.Dispose();
         }
     }
 } 

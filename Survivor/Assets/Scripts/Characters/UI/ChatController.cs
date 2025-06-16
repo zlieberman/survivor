@@ -33,6 +33,7 @@ namespace Survivor.Characters.UI
         private List<GameObject> currentMessageObjects = new List<GameObject>();
         private string currentNPCName;
         private DialogueManager dialogueManager;
+        private bool isWaitingForResponse = false;
 
         private void Start()
         {
@@ -85,7 +86,7 @@ namespace Survivor.Characters.UI
         private void OnInputValueChanged(string value)
         {
             if (sendButton != null)
-                sendButton.interactable = !string.IsNullOrWhiteSpace(value);
+                sendButton.interactable = !string.IsNullOrWhiteSpace(value) && !isWaitingForResponse;
         }
 
         public void SetCurrentNPC(string npcName)
@@ -164,7 +165,7 @@ namespace Survivor.Characters.UI
 
         public async void SendMessage()
         {
-            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text)) return;
+            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text) || isWaitingForResponse) return;
 
             // Check if we're in a valid dialogue session
             if (dialogueManager == null || !dialogueManager.IsDialogueValid)
@@ -175,7 +176,11 @@ namespace Survivor.Characters.UI
 
             string message = inputField.text;
             inputField.text = "";
-            inputField.ActivateInputField();
+            
+            // Disable input while waiting for response
+            isWaitingForResponse = true;
+            if (inputField != null) inputField.interactable = false;
+            if (sendButton != null) sendButton.interactable = false;
 
             // Add message to chat with "Me:" prefix
             AddMessage($"Me: {message}", playerMessageColor);
@@ -183,6 +188,18 @@ namespace Survivor.Characters.UI
             // Generate response from dialogue manager
             string response = await dialogueManager.GenerateResponse(message);
             AddNPCMessage(response);
+
+            // Re-enable input after response is received
+            isWaitingForResponse = false;
+            if (inputField != null)
+            {
+                inputField.interactable = true;
+                inputField.ActivateInputField();
+            }
+            if (sendButton != null)
+            {
+                sendButton.interactable = true;
+            }
         }
 
         public void AddNPCMessage(string message)
@@ -243,7 +260,7 @@ namespace Survivor.Characters.UI
 
         public void FocusInputField()
         {
-            if (inputField != null)
+            if (inputField != null && !isWaitingForResponse)
             {
                 inputField.ActivateInputField();
             }
