@@ -106,8 +106,10 @@ namespace Survivor.Tribes
                 
                 if (character != null)
                 {
+                    // Get a random name from NPCGenerator
+                    string memberName = NPCGenerator.Instance.GenerateRandomName();
+                    
                     // Initialize character
-                    string memberName = $"NPC_{tribeName}_{i + 1}";
                     character.Initialize(memberName, tribeName, includePlayer && i == 0, i);
                     
                     // Add to tribe

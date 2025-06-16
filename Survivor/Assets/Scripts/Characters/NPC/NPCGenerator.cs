@@ -22,13 +22,16 @@ namespace Survivor.Characters
             }
         }
 
+        [System.Serializable]
         private class NameData
         {
-            public List<string> firstNames;
-            public List<string> lastNames;
+            public string[] firstNames;
+            public string[] lastNames;
         }
 
-        private NameData nameData;
+        private List<string> availableFirstNames = new List<string>();
+        private List<string> availableLastNames = new List<string>();
+        private HashSet<string> usedNames = new HashSet<string>();
 
         private void Awake()
         {
@@ -47,77 +50,111 @@ namespace Survivor.Characters
 
         private void LoadNameData()
         {
-            Debug.Log("[NPCGenerator] Loading name data");
-            TextAsset namesJson = Resources.Load<TextAsset>("names");
-            if (namesJson != null)
+            TextAsset configFile = Resources.Load<TextAsset>("names");
+            if (configFile != null)
             {
-                Debug.Log($"[NPCGenerator] Successfully loaded names.json: {namesJson.text}");
-                nameData = JsonUtility.FromJson<NameData>(namesJson.text);
-                if (nameData != null)
-                {
-                    Debug.Log($"[NPCGenerator] Loaded {nameData.firstNames?.Count ?? 0} first names and {nameData.lastNames?.Count ?? 0} last names");
-                }
-                else
-                {
-                    Debug.LogError("[NPCGenerator] Failed to parse names.json!");
-                }
+                NameData nameData = JsonUtility.FromJson<NameData>(configFile.text);
+                availableFirstNames = new List<string>(nameData.firstNames);
+                availableLastNames = new List<string>(nameData.lastNames);
+                ShuffleNames();
+                Debug.Log("[NPCGenerator] Loaded name data successfully");
             }
             else
             {
                 Debug.LogError("[NPCGenerator] Failed to load names.json from Resources folder!");
-                nameData = new NameData
-                {
-                    firstNames = new List<string> { "Unknown" },
-                    lastNames = new List<string> { "Person" }
-                };
+            }
+        }
+
+        private void ShuffleNames()
+        {
+            // Fisher-Yates shuffle for first names
+            for (int i = availableFirstNames.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                string temp = availableFirstNames[i];
+                availableFirstNames[i] = availableFirstNames[j];
+                availableFirstNames[j] = temp;
+            }
+
+            // Fisher-Yates shuffle for last names
+            for (int i = availableLastNames.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                string temp = availableLastNames[i];
+                availableLastNames[i] = availableLastNames[j];
+                availableLastNames[j] = temp;
             }
         }
 
         public string GenerateRandomName()
         {
-            Debug.Log("[NPCGenerator] Generating random name");
-            if (nameData == null)
+            if (availableFirstNames.Count == 0 || availableLastNames.Count == 0)
             {
-                Debug.LogWarning("[NPCGenerator] nameData is null, reloading...");
+                // If we run out of names, reset the pools
                 LoadNameData();
             }
 
-            if (nameData?.firstNames == null || nameData?.lastNames == null)
-            {
-                Debug.LogError("[NPCGenerator] nameData or its lists are null!");
-                return "Unknown Person";
-            }
-
-            string firstName = nameData.firstNames[Random.Range(0, nameData.firstNames.Count)];
-            string lastName = nameData.lastNames[Random.Range(0, nameData.lastNames.Count)];
+            string firstName = availableFirstNames[0];
+            string lastName = availableLastNames[0];
             string fullName = $"{firstName} {lastName}";
+
+            availableFirstNames.RemoveAt(0);
+            availableLastNames.RemoveAt(0);
+            usedNames.Add(fullName);
+
             Debug.Log($"[NPCGenerator] Generated name: {fullName}");
             return fullName;
         }
 
+        public void ReleaseName(string name)
+        {
+            if (usedNames.Contains(name))
+            {
+                string[] nameParts = name.Split(' ');
+                if (nameParts.Length == 2)
+                {
+                    availableFirstNames.Add(nameParts[0]);
+                    availableLastNames.Add(nameParts[1]);
+                }
+                usedNames.Remove(name);
+                Debug.Log($"[NPCGenerator] Released name: {name}");
+            }
+        }
+
         public CharacterStats GenerateRandomStats()
         {
-            Debug.Log("[NPCGenerator] Generating random stats");
             CharacterStats stats = new CharacterStats();
             
-            // Generate random integer values between 0 and 100 for each stat
-            stats.perception = Random.Range(0, 101);
-            stats.deception = Random.Range(0, 101);
-            stats.persuasion = Random.Range(0, 101);
-            stats.puzzleSolving = Random.Range(0, 101);
-            stats.swimming = Random.Range(0, 101);
-            stats.speed = Random.Range(0, 101);
-            stats.strength = Random.Range(0, 101);
-            stats.agility = Random.Range(0, 101);
-            stats.intelligence = Random.Range(0, 101);
-            stats.stamina = Random.Range(0, 101);
-            stats.charisma = Random.Range(0, 101);
-            stats.honesty = Random.Range(0, 101);
-            stats.trust = Random.Range(0, 101);
-            stats.honor = Random.Range(0, 101);
+            // Generate stats using normal distribution
+            stats.perception = GenerateNormalRandom(50, 30);
+            stats.deception = GenerateNormalRandom(50, 30);
+            stats.persuasion = GenerateNormalRandom(50, 30);
+            stats.puzzleSolving = GenerateNormalRandom(50, 30);
+            stats.swimming = GenerateNormalRandom(50, 30);
+            stats.speed = GenerateNormalRandom(50, 30);
+            stats.strength = GenerateNormalRandom(50, 30);
+            stats.agility = GenerateNormalRandom(50, 30);
+            stats.intelligence = GenerateNormalRandom(50, 30);
+            stats.stamina = GenerateNormalRandom(50, 30);
+            stats.charisma = GenerateNormalRandom(50, 30);
+            stats.honesty = GenerateNormalRandom(50, 30);
+            stats.trust = GenerateNormalRandom(50, 30);
+            stats.honor = GenerateNormalRandom(50, 30);
 
-            Debug.Log($"[NPCGenerator] Generated stats - Speed: {stats.speed}, Strength: {stats.strength}, etc.");
+            Debug.Log("[NPCGenerator] Generated random stats");
             return stats;
+        }
+
+        private int GenerateNormalRandom(int mean, int stdDev)
+        {
+            // Box-Muller transform
+            float u1 = Random.value;
+            float u2 = Random.value;
+            float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) * Mathf.Cos(2.0f * Mathf.PI * u2);
+            float randNormal = mean + stdDev * randStdNormal;
+            
+            // Clamp to 0-100 range
+            return Mathf.Clamp(Mathf.RoundToInt(randNormal), 0, 100);
         }
     }
 } 

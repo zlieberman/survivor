@@ -26,9 +26,10 @@ namespace Survivor.Core
         }
 
         [System.Serializable]
-        private class NPCConfig
+        private class NameData
         {
-            public string[] names;
+            public string[] firstNames;
+            public string[] lastNames;
         }
 
         [Header("NPC Configuration")]
@@ -46,7 +47,8 @@ namespace Survivor.Core
 
         private Dictionary<string, NPCData> npcs = new Dictionary<string, NPCData>();
         private List<string> eliminatedNPCs = new List<string>();
-        private List<string> availableNames = new List<string>();
+        private List<string> availableFirstNames = new List<string>();
+        private List<string> availableLastNames = new List<string>();
         private HashSet<string> usedNames = new HashSet<string>();
 
         private void Awake()
@@ -65,53 +67,71 @@ namespace Survivor.Core
 
         private void LoadNames()
         {
-            TextAsset configFile = Resources.Load<TextAsset>("NPCConfig");
+            TextAsset configFile = Resources.Load<TextAsset>("names");
             if (configFile != null)
             {
-                NPCConfig config = JsonUtility.FromJson<NPCConfig>(configFile.text);
-                availableNames = new List<string>(config.names);
+                NameData nameData = JsonUtility.FromJson<NameData>(configFile.text);
+                availableFirstNames = new List<string>(nameData.firstNames);
+                availableLastNames = new List<string>(nameData.lastNames);
                 ShuffleNames();
             }
             else
             {
-                Debug.LogError("Failed to load NPCConfig.json from Resources folder!");
+                Debug.LogError("Failed to load names.json from Resources folder!");
             }
         }
 
         private void ShuffleNames()
         {
-            // Fisher-Yates shuffle
-            for (int i = availableNames.Count - 1; i > 0; i--)
+            // Fisher-Yates shuffle for first names
+            for (int i = availableFirstNames.Count - 1; i > 0; i--)
             {
                 int j = Random.Range(0, i + 1);
-                string temp = availableNames[i];
-                availableNames[i] = availableNames[j];
-                availableNames[j] = temp;
+                string temp = availableFirstNames[i];
+                availableFirstNames[i] = availableFirstNames[j];
+                availableFirstNames[j] = temp;
+            }
+
+            // Fisher-Yates shuffle for last names
+            for (int i = availableLastNames.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                string temp = availableLastNames[i];
+                availableLastNames[i] = availableLastNames[j];
+                availableLastNames[j] = temp;
             }
         }
 
         private string GetRandomName()
         {
-            if (availableNames.Count == 0)
+            if (availableFirstNames.Count == 0 || availableLastNames.Count == 0)
             {
-                // If we run out of names, reset the pool
-                availableNames = new List<string>(usedNames);
-                usedNames.Clear();
-                ShuffleNames();
+                // If we run out of names, reset the pools
+                LoadNames();
             }
 
-            string name = availableNames[0];
-            availableNames.RemoveAt(0);
-            usedNames.Add(name);
-            return name;
+            string firstName = availableFirstNames[0];
+            string lastName = availableLastNames[0];
+            string fullName = $"{firstName} {lastName}";
+
+            availableFirstNames.RemoveAt(0);
+            availableLastNames.RemoveAt(0);
+            usedNames.Add(fullName);
+
+            return fullName;
         }
 
         private void ReleaseName(string name)
         {
             if (usedNames.Contains(name))
             {
+                string[] nameParts = name.Split(' ');
+                if (nameParts.Length == 2)
+                {
+                    availableFirstNames.Add(nameParts[0]);
+                    availableLastNames.Add(nameParts[1]);
+                }
                 usedNames.Remove(name);
-                availableNames.Add(name);
             }
         }
 
@@ -311,16 +331,6 @@ namespace Survivor.Core
             return npc1.alliance.Contains(npc2Name);
         }
 
-        // Temporary name generation - replace with proper name list later
-        private string GenerateRandomName()
-        {
-            string[] names = {
-                "Alex", "Jordan", "Morgan", "Taylor", "Sam", "Casey", "Riley", "Quinn",
-                "Avery", "Parker", "Blake", "Charlie", "Jamie", "Phoenix", "River", "Sage"
-            };
-            return names[Random.Range(0, names.Length)];
-        }
-
         public Character GetTribeMember(string memberName)
         {
             NPCData npcData = GetNPCData(memberName);
@@ -353,6 +363,11 @@ namespace Survivor.Core
         public void AddTribeMember(Character member)
         {
             if (member == null) return;
+            // If no name is provided, generate a random one
+            if (string.IsNullOrEmpty(member.CharacterName))
+            {
+                member.CharacterName = GetRandomName();
+            }
             CreateNPC(member.CharacterName);
         }
 
@@ -372,11 +387,6 @@ namespace Survivor.Core
                     // Update stats
                 }
             }
-
-            // Get NPC name
-            string npcName = character.CharacterName;
-
-            // ... rest of the existing code ...
         }
     }
 } 
