@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using Survivor.Challenges;
 using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Core
 {
@@ -187,12 +188,12 @@ namespace Survivor.Core
             }
         }
 
-        public void ShowNPCInfo(TribeMember tribeMember)
+        public void ShowNPCInfo(Character character)
         {
-            if (tribeMember == null) return;
+            if (character == null) return;
 
             npcInfoPanel.SetActive(true);
-            selectedNpcNameText.text = tribeMember.memberName;
+            selectedNpcNameText.text = character.CharacterName;
 
             // Clear existing stats
             foreach (Transform child in statsContainer)
@@ -201,19 +202,19 @@ namespace Survivor.Core
             }
 
             // Display stats
-            if (tribeMember.stats != null)
+            if (character.Stats != null)
             {
-                DisplayStat("Perception", tribeMember.stats.perception);
-                DisplayStat("Deception", tribeMember.stats.deception);
-                DisplayStat("Persuasion", tribeMember.stats.persuasion);
-                DisplayStat("Puzzle Solving", tribeMember.stats.puzzleSolving);
-                DisplayStat("Swimming", tribeMember.stats.swimming);
-                DisplayStat("Speed", tribeMember.stats.speed);
-                DisplayStat("Strength", tribeMember.stats.strength);
-                DisplayStat("Charisma", tribeMember.stats.charisma);
-                DisplayStat("Honesty", tribeMember.stats.honesty);
-                DisplayStat("Trust", tribeMember.stats.trust);
-                DisplayStat("Honor", tribeMember.stats.honor);
+                DisplayStat("Perception", character.Stats.perception);
+                DisplayStat("Deception", character.Stats.deception);
+                DisplayStat("Persuasion", character.Stats.persuasion);
+                DisplayStat("Puzzle Solving", character.Stats.puzzleSolving);
+                DisplayStat("Swimming", character.Stats.swimming);
+                DisplayStat("Speed", character.Stats.speed);
+                DisplayStat("Strength", character.Stats.strength);
+                DisplayStat("Charisma", character.Stats.charisma);
+                DisplayStat("Honesty", character.Stats.honesty);
+                DisplayStat("Trust", character.Stats.trust);
+                DisplayStat("Honor", character.Stats.honor);
             }
 
             // Clear existing relationships
@@ -223,7 +224,7 @@ namespace Survivor.Core
             }
 
             // Display tribe information
-            DisplayRelationship("Tribe", tribeMember.tribeName);
+            DisplayRelationship("Tribe", character.TribeName);
         }
 
         private void DisplayStat(string statName, float value)

@@ -3,8 +3,12 @@
     "rootNamespace": "Survivor.Challenges",
     "references": [
         "Survivor.Common",
+        "Survivor.Shared",
         "Unity.TextMeshPro",
-        "Survivor.Tribes"
+        "Survivor.Tribes",
+        "Survivor.Characters",
+        "UnityEngine",
+        "UnityEngine.CoreModule"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

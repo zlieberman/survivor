@@ -5,6 +5,11 @@ using Survivor.Generation;
 using UnityEngine.InputSystem;
 using UnityEngine.AI;
 using System.Collections;
+using Survivor.Characters;
+using Survivor.Characters.Dialogue;
+using Survivor.Characters.UI;
+using Survivor.Shared.Interfaces;
+using Survivor.UI;
 
 public class GameManager : MonoBehaviour
 {
@@ -14,7 +19,13 @@ public class GameManager : MonoBehaviour
     public GameObject playerPrefab;
     public GameObject npcPrefab;
 
-    private PlayerStats mainPlayer;
+    [Header("Prefabs")]
+    [SerializeField] private GameObject dialogueUIPrefab;
+
+    [Header("Managers")]
+    [SerializeField] private DialogueManager dialogueManager;
+
+    private CharacterStats mainPlayer;
     private ProceduralIslandGenerator islandGenerator;
     private CampGenerator campGenerator;
     private bool isGameInitialized = false;
@@ -37,6 +48,7 @@ public class GameManager : MonoBehaviour
                 Debug.Log("Starting in TropicalIsland scene - initializing immediately");
                 InitializeGame();
             }
+            InitializeDialogueSystem();
         }
         else
         {
@@ -88,13 +100,23 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("Initializing game");
         
-        // Create main player
-        mainPlayer = new PlayerStats();
-        mainPlayer.isMainPlayer = true;
-        mainPlayer.isInGame = true;
-        mainPlayer.playerName = "Player"; // Set main player name
-        mainPlayer.InitializeRandomStats();
-        Debug.Log("Main player created");
+        // Create main player stats
+        mainPlayer = new CharacterStats();
+        mainPlayer.perception = Random.Range(50f, 100f);
+        mainPlayer.deception = Random.Range(50f, 100f);
+        mainPlayer.persuasion = Random.Range(50f, 100f);
+        mainPlayer.puzzleSolving = Random.Range(50f, 100f);
+        mainPlayer.swimming = Random.Range(50f, 100f);
+        mainPlayer.speed = Random.Range(50f, 100f);
+        mainPlayer.strength = Random.Range(50f, 100f);
+        mainPlayer.agility = Random.Range(50f, 100f);
+        mainPlayer.intelligence = Random.Range(50f, 100f);
+        mainPlayer.stamina = Random.Range(50f, 100f);
+        mainPlayer.charisma = Random.Range(50f, 100f);
+        mainPlayer.honesty = Random.Range(50f, 100f);
+        mainPlayer.trust = Random.Range(50f, 100f);
+        mainPlayer.honor = Random.Range(50f, 100f);
+        Debug.Log("Main player stats created");
 
         isGameInitialized = true;
         isInitializing = false;
@@ -266,10 +288,10 @@ public class GameManager : MonoBehaviour
                 Debug.Log($"Player spawned successfully at: {playerObject.transform.position}");
 
                 // Ensure the player has all required components
-                CharacterController controller = playerObject.GetComponent<CharacterController>();
+                UnityEngine.CharacterController controller = playerObject.GetComponent<UnityEngine.CharacterController>();
                 if (controller == null)
                 {
-                    controller = playerObject.AddComponent<CharacterController>();
+                    controller = playerObject.AddComponent<UnityEngine.CharacterController>();
                     controller.height = 2f;
                     controller.radius = 0.5f;
                     controller.stepOffset = 0.3f;
@@ -312,6 +334,25 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogError("Player prefab not assigned!");
+        }
+    }
+
+    private void InitializeDialogueSystem()
+    {
+        // Create dialogue UI if it doesn't exist
+        if (dialogueUIPrefab != null && FindObjectOfType<DialogueUI>() == null)
+        {
+            GameObject dialogueUI = Instantiate(dialogueUIPrefab);
+            dialogueUI.name = "DialogueUI";
+            DontDestroyOnLoad(dialogueUI);
+        }
+
+        // Create dialogue manager if it doesn't exist
+        if (dialogueManager == null)
+        {
+            GameObject managerObj = new GameObject("DialogueManager");
+            dialogueManager = managerObj.AddComponent<DialogueManager>();
+            DontDestroyOnLoad(managerObj);
         }
     }
 } 

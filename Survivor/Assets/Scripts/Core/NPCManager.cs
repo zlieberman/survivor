@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Core
 {
@@ -301,46 +302,62 @@ namespace Survivor.Core
             return names[Random.Range(0, names.Length)];
         }
 
-        public TribeMember GetTribeMember(string memberName)
+        public Character GetTribeMember(string memberName)
         {
             NPCData npcData = GetNPCData(memberName);
             if (npcData == null) return null;
 
-            return new TribeMember
+            Character character = new Character();
+            character.CharacterName = npcData.name;
+            character.Stats = new CharacterStats
             {
-                memberName = npcData.name,
-                tribeName = "Main Tribe", // You might want to make this configurable
-                stats = new TribeMemberStats
-                {
-                    perception = npcData.loyalty,
-                    deception = npcData.sneakiness,
-                    persuasion = npcData.charisma,
-                    puzzleSolving = 50f, // Default value
-                    swimming = 50f, // Default value
-                    speed = 50f, // Default value
-                    strength = 50f, // Default value
-                    charisma = npcData.charisma,
-                    honesty = 100f - npcData.sneakiness,
-                    trust = npcData.loyalty,
-                    honor = 100f - npcData.aggression
-                }
+                perception = npcData.loyalty,
+                deception = npcData.sneakiness,
+                persuasion = npcData.charisma,
+                puzzleSolving = 50f, // Default value
+                swimming = 50f, // Default value
+                speed = 50f, // Default value
+                strength = 50f, // Default value
+                charisma = npcData.charisma,
+                honesty = 100f - npcData.sneakiness,
+                trust = npcData.loyalty,
+                honor = 100f - npcData.aggression
             };
+            return character;
         }
 
-        public List<TribeMember> GetAllTribeMembers()
+        public List<Character> GetAllTribeMembers()
         {
             return npcs.Keys.Select(name => GetTribeMember(name)).ToList();
         }
 
-        public void AddTribeMember(TribeMember member)
+        public void AddTribeMember(Character member)
         {
             if (member == null) return;
-            CreateNPC(member.memberName);
+            CreateNPC(member.CharacterName);
         }
 
         public void RemoveTribeMember(string memberName)
         {
             EliminateNPC(memberName);
+        }
+
+        // Update NPC data
+        public void UpdateNPCData(Character character)
+        {
+            if (character != null)
+            {
+                Debug.Log($"Updating NPC: {character.CharacterName}");
+                if (character.Stats != null)
+                {
+                    // Update stats
+                }
+            }
+
+            // Get NPC name
+            string npcName = character.CharacterName;
+
+            // ... rest of the existing code ...
         }
     }
 } 

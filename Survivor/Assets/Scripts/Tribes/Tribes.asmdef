@@ -4,7 +4,9 @@
     "references": [
         "StarterAssets",
         "Survivor.Generation",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Survivor.Shared",
+        "Survivor.Characters"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

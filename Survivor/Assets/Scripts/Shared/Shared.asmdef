@@ -1,7 +1,11 @@
 {
     "name": "Survivor.Shared",
     "rootNamespace": "Survivor.Shared",
-    "references": ["Survivor.Common"],
+    "references": [
+        "Survivor.Common",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

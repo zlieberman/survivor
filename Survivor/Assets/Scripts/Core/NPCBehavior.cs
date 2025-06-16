@@ -2,15 +2,16 @@ using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
 using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Core
 {
     [RequireComponent(typeof(NavMeshAgent))]
-    [RequireComponent(typeof(TribeMember))]
+    [RequireComponent(typeof(Character))]
     public class NPCBehavior : MonoBehaviour
     {
         private NavMeshAgent navAgent;
-        private TribeMember tribeMember;
+        private Character character;
         private Animator animator;
         private NPCStats stats;
 
@@ -26,7 +27,7 @@ namespace Survivor.Core
         private void Awake()
         {
             navAgent = GetComponent<NavMeshAgent>();
-            tribeMember = GetComponent<TribeMember>();
+            character = GetComponent<Character>();
             animator = GetComponent<Animator>();
         }
 

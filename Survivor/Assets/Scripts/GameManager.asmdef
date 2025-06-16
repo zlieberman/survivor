@@ -1,0 +1,25 @@
+{
+    "name": "Survivor.GameManager",
+    "rootNamespace": "Survivor",
+    "references": [
+        "Survivor.Shared",
+        "Survivor.Shared.Interfaces",
+        "Survivor.UI",
+        "Survivor.Characters",
+        "Survivor.Generation",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "UnityEngine",
+        "UnityEngine.CoreModule",
+        "UnityEngine.AIModule"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

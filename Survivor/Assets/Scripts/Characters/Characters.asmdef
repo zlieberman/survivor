@@ -1,0 +1,22 @@
+{
+    "name": "Survivor.Characters",
+    "rootNamespace": "Survivor.Characters",
+    "references": [
+        "Survivor.Shared",
+        "Survivor.Shared.Interfaces",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "StarterAssets",
+        "UnityEngine",
+        "UnityEngine.CoreModule"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

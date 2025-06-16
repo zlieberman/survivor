@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Challenges
 {
@@ -45,7 +46,7 @@ namespace Survivor.Challenges
     public class ChallengeRuntime
     {
         public ChallengeData data;
-        public TribeMember winner;
+        public Character winner;
         public Dictionary<string, float> participantScores = new Dictionary<string, float>();
         public float remainingTime;
         public float progress;
@@ -62,7 +63,7 @@ namespace Survivor.Challenges
         public float RemainingTime => runtime.remainingTime;
         public float Progress => runtime.progress;
         public bool IsActive => runtime.isActive;
-        public TribeMember Winner => runtime.winner;
+        public Character Winner => runtime.winner;
 
         public virtual void Initialize()
         {

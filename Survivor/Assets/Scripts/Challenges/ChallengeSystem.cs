@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.Events;
 using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Challenges
 {
@@ -22,7 +23,7 @@ namespace Survivor.Challenges
         public UnityEvent<Challenge> onChallengeStarted;
         public UnityEvent<Challenge> onChallengeCompleted;
         public UnityEvent<Challenge> onChallengeFailed;
-        public UnityEvent<TribeMember> onChallengeWin;
+        public UnityEvent<Character> onChallengeWin;
         public UnityEvent<string> onWinnerDetermined;
 
         private Challenge currentChallenge;
@@ -68,7 +69,7 @@ namespace Survivor.Challenges
                 // Update participant scores based on their stats
                 foreach (string memberName in currentChallenge.ParticipantScores.Keys)
                 {
-                    TribeMember member = npcManager.GetTribeMember(memberName);
+                    Character member = npcManager.GetTribeMember(memberName);
                     if (member != null)
                     {
                         float score = CalculateScore(member, currentChallenge.data.type);
@@ -93,56 +94,96 @@ namespace Survivor.Challenges
 
         private void InitializeDefaultChallenges()
         {
-            // Add default challenges here
-            // This is just an example, you should create proper challenge assets
-            var balanceBeam = ScriptableObject.CreateInstance<EnduranceChallenge>();
-            balanceBeam.data = new ChallengeData
+            // Add some default challenges
+            var raceChallenge = ScriptableObject.CreateInstance<RaceChallenge>();
+            raceChallenge.data = new ChallengeData
             {
-                id = "balance_beam",
-                title = "Balance Beam",
-                description = "Maintain your balance on the beam as long as possible!",
-                type = ChallengeType.Endurance,
-                strengthWeight = 0.2f,
-                agilityWeight = 0.4f,
-                puzzleWeight = 0.0f,
-                difficulty = ChallengeDifficulty.Medium
+                id = "race_1",
+                title = "Survival Race",
+                description = "Race to the finish line while avoiding obstacles",
+                type = ChallengeType.Race,
+                difficulty = ChallengeDifficulty.Medium,
+                duration = 120f,
+                isTeamChallenge = false
             };
-            availableChallenges.Add(balanceBeam);
+            availableChallenges.Add(raceChallenge);
+
+            var puzzleChallenge = ScriptableObject.CreateInstance<SlidingPuzzleChallenge>();
+            puzzleChallenge.data = new ChallengeData
+            {
+                id = "puzzle_1",
+                title = "Puzzle Master",
+                description = "Solve puzzles to win immunity",
+                type = ChallengeType.Puzzle,
+                difficulty = ChallengeDifficulty.Hard,
+                duration = 180f,
+                isTeamChallenge = false
+            };
+            availableChallenges.Add(puzzleChallenge);
+
+            var enduranceChallenge = ScriptableObject.CreateInstance<EnduranceChallenge>();
+            enduranceChallenge.data = new ChallengeData
+            {
+                id = "endurance_1",
+                title = "Swimming Challenge",
+                description = "Swim to the buoy and back",
+                type = ChallengeType.Endurance,
+                difficulty = ChallengeDifficulty.Medium,
+                duration = 90f,
+                isTeamChallenge = false
+            };
+            availableChallenges.Add(enduranceChallenge);
         }
 
-        public void StartChallenge(Challenge challenge = null)
+        public void StartRandomChallenge()
         {
-            if (isChallengeActive || isOnCooldown) return;
-
-            if (challenge == null)
+            if (isChallengeActive || isOnCooldown)
             {
-                // Start a random challenge
-                currentChallenge = availableChallenges[UnityEngine.Random.Range(0, availableChallenges.Count)];
-            }
-            else
-            {
-                currentChallenge = challenge;
+                Debug.Log("Cannot start a new challenge while one is active or on cooldown");
+                return;
             }
 
-            // Initialize challenge
-            currentChallenge.Initialize();
-            currentChallenge.data.duration = UnityEngine.Random.Range(minChallengeDuration, maxChallengeDuration);
-            currentChallenge.data.isTeamChallenge = UnityEngine.Random.value > 0.5f;
+            // Select a random challenge
+            currentChallenge = availableChallenges[UnityEngine.Random.Range(0, availableChallenges.Count)];
+            currentChallenge.StartChallenge();
+
+            // Get all active NPCs
+            var activeNPCs = npcManager.GetActiveNPCs();
+            if (activeNPCs.Count < 2)
+            {
+                Debug.Log("Not enough active NPCs to start a challenge");
+                return;
+            }
 
             // Add all tribe members as participants
-            foreach (TribeMember member in npcManager.GetAllTribeMembers())
+            foreach (string npcName in activeNPCs)
             {
-                currentChallenge.AddParticipant(member.memberName);
+                Character member = npcManager.GetTribeMember(npcName);
+                if (member != null)
+                {
+                    currentChallenge.AddParticipant(member.CharacterName);
+                }
             }
 
             isChallengeActive = true;
-            currentChallenge.StartChallenge();
-
-            Debug.Log($"Starting Challenge: {currentChallenge.data.title}\n{currentChallenge.data.description}");
             onChallengeStarted?.Invoke(currentChallenge);
+
+            // Start the challenge timer
+            StartCoroutine(ChallengeTimer());
         }
 
-        public void CompleteChallenge()
+        private IEnumerator ChallengeTimer()
+        {
+            float challengeTime = UnityEngine.Random.Range(minChallengeDuration, maxChallengeDuration);
+            yield return new WaitForSeconds(challengeTime);
+
+            if (isChallengeActive)
+            {
+                CompleteChallenge();
+            }
+        }
+
+        private void CompleteChallenge()
         {
             if (!isChallengeActive || currentChallenge == null) return;
 
@@ -153,7 +194,7 @@ namespace Survivor.Challenges
 
             if (!string.IsNullOrEmpty(winnerName))
             {
-                TribeMember winner = npcManager.GetTribeMember(winnerName);
+                Character winner = npcManager.GetTribeMember(winnerName);
                 if (winner != null)
                 {
                     onChallengeWin?.Invoke(winner);
@@ -183,35 +224,60 @@ namespace Survivor.Challenges
             currentChallenge = null;
         }
 
-        private float CalculateScore(TribeMember member, ChallengeType type)
+        private float CalculateScore(Character member, ChallengeType type)
         {
-            float score = 0f;
+            if (member == null || member.Stats == null) return 0f;
+
             switch (type)
             {
-                case ChallengeType.Physical:
-                    score = member.stats.strength;
-                    break;
-                case ChallengeType.Agility:
-                    score = member.stats.agility;
-                    break;
+                case ChallengeType.Race:
+                    return member.Stats.speed;
                 case ChallengeType.Puzzle:
-                case ChallengeType.Mental:
-                    score = member.stats.intelligence;
-                    break;
-                case ChallengeType.Social:
-                    score = member.stats.charisma;
-                    break;
+                    return member.Stats.puzzleSolving;
                 case ChallengeType.Endurance:
-                    score = member.stats.stamina;
-                    break;
-                case ChallengeType.Hybrid:
-                    score = (member.stats.strength + member.stats.agility + member.stats.intelligence) / 3f;
-                    break;
+                    return member.Stats.swimming;
+                default:
+                    return 0f;
             }
-            return score;
         }
 
         // IChallengeManager implementation
+        public void StartChallenge(Challenge challenge)
+        {
+            if (isChallengeActive || isOnCooldown)
+            {
+                Debug.Log("Cannot start a new challenge while one is active or on cooldown");
+                return;
+            }
+
+            currentChallenge = challenge;
+            currentChallenge.StartChallenge();
+
+            // Get all active NPCs
+            var activeNPCs = npcManager.GetActiveNPCs();
+            if (activeNPCs.Count < 2)
+            {
+                Debug.Log("Not enough active NPCs to start a challenge");
+                return;
+            }
+
+            // Add all tribe members as participants
+            foreach (string npcName in activeNPCs)
+            {
+                Character member = npcManager.GetTribeMember(npcName);
+                if (member != null)
+                {
+                    currentChallenge.AddParticipant(member.CharacterName);
+                }
+            }
+
+            isChallengeActive = true;
+            onChallengeStarted?.Invoke(currentChallenge);
+
+            // Start the challenge timer
+            StartCoroutine(ChallengeTimer());
+        }
+
         public Challenge GetCurrentChallenge()
         {
             return currentChallenge;

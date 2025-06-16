@@ -1,0 +1,22 @@
+{
+    "name": "Survivor.UI",
+    "rootNamespace": "Survivor.UI",
+    "references": [
+        "Survivor.Shared",
+        "Survivor.Shared.Interfaces",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem",
+        "UnityEngine",
+        "UnityEngine.CoreModule",
+        "Survivor.Characters"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 

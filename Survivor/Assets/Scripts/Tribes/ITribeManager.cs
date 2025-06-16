@@ -1,24 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Survivor.Tribes;
+using Survivor.Characters;
 
 namespace Survivor.Tribes
 {
     public interface ITribeManager
     {
         // Core tribe management
-        List<TribeMember> GetTribeMembers(string tribeName);
-        TribeMember GetPlayer();
-        void EliminateMember(TribeMember member);
+        List<Character> GetTribeMembers(string tribeName);
+        Character GetPlayer();
+        void EliminateMember(Character member);
         IEnumerable<string> GetActiveNPCs();
-        TribeMember GetNPCData(string npcName);
+        Character GetNPCData(string npcName);
         void UpdateRelationship(string npcName, string targetName, float delta);
 
         // Challenge system integration
         bool CanStartChallenge(Vector3 position);
-        void StartChallenge(List<TribeMember> participants);
-        void EliminateParticipant(TribeMember member);
-        bool IsParticipantInChallenge(TribeMember member);
-        List<TribeMember> GetActiveParticipants();
+        void StartChallenge(List<Character> participants);
+        void EliminateParticipant(Character member);
+        bool IsParticipantInChallenge(Character member);
+        List<Character> GetActiveParticipants();
     }
 } 

@@ -1,7 +1,7 @@
 using UnityEngine;
 using Survivor.Common;
 using Survivor.Core;
-using Survivor.Dialogue;
+using Survivor.Characters;
 using Survivor.Environment;
 using Survivor.Tribes;
 using Survivor.Challenges;
@@ -16,7 +16,6 @@ namespace Survivor.Core
         [Header("Core Systems")]
         [SerializeField] private TribeManager tribeManager;
         [SerializeField] private ChallengeSystem challengeSystem;
-        [SerializeField] private DialogueSystem dialogueSystem;
         [SerializeField] private UIManager uiManager;
         [SerializeField] private EnvironmentManager environmentManager;
 
@@ -53,13 +52,6 @@ namespace Survivor.Core
                     pauseMenuPanel
                 );
                 Debug.Log("UI Manager initialized");
-            }
-
-            // Initialize Dialogue System
-            if (dialogueSystem != null && tribeManager != null)
-            {
-                dialogueSystem.Initialize(tribeManager);
-                Debug.Log("Dialogue System initialized");
             }
 
             // Initialize Environment Manager
@@ -114,62 +106,67 @@ namespace Survivor.Core
                 {
                     Debug.Log("Spawning player at camp position..." );
                     GameObject player = Instantiate(playerPrefab, campPos.Value, Quaternion.identity);
-                    // Get the player's tribe member component
-                    TribeMember playerTribeMember = player.GetComponent<TribeMember>();
-                    if (playerTribeMember != null)
+                    // Get the player's character component
+                    PlayerCharacter playerCharacter = player.GetComponent<PlayerCharacter>();
+                    if (playerCharacter != null)
                     {
-                        Debug.Log($"Player spawned in tribe: {playerTribeMember.tribeName}");
-                        List<TribeMember> tribeMembers = tribeManager.GetTribeMembers(playerTribeMember.tribeName);
+                        Debug.Log($"Player spawned in tribe: {playerCharacter.TribeName}");
+                        List<Character> tribeMembers = tribeManager.GetTribeMembers(playerCharacter.TribeName);
                         Debug.Log($"Found {tribeMembers.Count} members in player's tribe");
-                        foreach (TribeMember member in tribeMembers)
+                        foreach (Character member in tribeMembers)
                         {
                             if (!member.IsPlayer)
                             {
                                 Vector3 spawnPos = campPos.Value + Random.insideUnitSphere * 5f;
                                 spawnPos.y = campPos.Value.y;
                                 member.transform.position = spawnPos;
-                                Debug.Log($"Spawned tribe member {member.memberName} at position {spawnPos}");
+                                Debug.Log($"Spawned tribe member {member.CharacterName} at position {spawnPos}");
                             }
+                        }
+
+                        // Set tribe information
+                        if (playerCharacter != null)
+                        {
+                            playerCharacter.Initialize(
+                                playerCharacter.CharacterName,
+                                playerCharacter.TribeName,
+                                playerCharacter.IsPlayer,
+                                playerCharacter.GetInstanceID()
+                            );
                         }
                     }
                     else
                     {
-                        Debug.LogError("Player prefab is missing TribeMember component!");
+                        Debug.LogError("Player prefab does not have a PlayerCharacter component!");
                     }
                 }
                 else
                 {
-                    Debug.LogError("Camp position is not available from ProceduralIslandGenerator!");
+                    Debug.LogError("Camp position not found!");
                 }
             }
             else
             {
-                Debug.LogError("Player prefab or ProceduralIslandGenerator reference is missing!");
+                Debug.LogError("Player prefab or island generator is missing!");
             }
         }
 
         private void OnChallengeStarted(Challenge challenge)
         {
-            if (uiManager != null)
-            {
-                uiManager.ShowChallengeUI(challenge);
-            }
+            Debug.Log($"Challenge started: {challenge.data.title}");
+            // Additional challenge start logic
         }
 
         private void OnChallengeCompleted(Challenge challenge)
         {
-            if (uiManager != null)
-            {
-                uiManager.HideChallengeUI();
-            }
+            Debug.Log($"Challenge completed: {challenge.data.title}");
+            // Additional challenge completion logic
         }
 
         private void OnChallengeFailed(Challenge challenge)
         {
-            if (uiManager != null)
-            {
-                uiManager.HideChallengeUI();
-            }
+            Debug.Log($"Challenge failed: {challenge.data.title}");
+            // Additional challenge failure logic
         }
 
         private void OnDestroy()

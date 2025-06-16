@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using Survivor.Tribes;
 using Survivor.Challenges;
+using Survivor.Characters;
 
 namespace Survivor.Core
 {
@@ -87,16 +88,16 @@ namespace Survivor.Core
             return isInDialogue;
         }
 
-        public async Task<string> GenerateDialogue(TribeMember tribeMember, string playerPrompt)
+        public async Task<string> GenerateDialogue(Character character, string playerPrompt)
         {
-            if (tribeMember == null) return "Error: No NPC selected.";
+            if (character == null) return "Error: No NPC selected.";
 
             if (isProcessingDialogue) return null;
             isProcessingDialogue = true;
 
             try
             {
-                var context = BuildDialogueContext(tribeMember, playerPrompt);
+                var context = BuildDialogueContext(character, playerPrompt);
                 
                 // Convert context to JSON
                 string jsonContext = JsonConvert.SerializeObject(context);
@@ -128,39 +129,39 @@ Respond in character, keeping your response concise (1-2 sentences). Consider yo
             }
         }
 
-        private DialogueContext BuildDialogueContext(TribeMember tribeMember, string playerPrompt)
+        private DialogueContext BuildDialogueContext(Character character, string playerPrompt)
         {
             var context = new DialogueContext
             {
-                npcName = tribeMember.memberName,
+                npcName = character.CharacterName,
                 stats = new Dictionary<string, float>
                 {
-                    { "perception", tribeMember.stats.perception },
-                    { "deception", tribeMember.stats.deception },
-                    { "persuasion", tribeMember.stats.persuasion },
-                    { "puzzleSolving", tribeMember.stats.puzzleSolving },
-                    { "charisma", tribeMember.stats.charisma },
-                    { "honesty", tribeMember.stats.honesty },
-                    { "trust", tribeMember.stats.trust },
-                    { "honor", tribeMember.stats.honor }
+                    { "perception", character.Stats.perception },
+                    { "deception", character.Stats.deception },
+                    { "persuasion", character.Stats.persuasion },
+                    { "puzzleSolving", character.Stats.puzzleSolving },
+                    { "charisma", character.Stats.charisma },
+                    { "honesty", character.Stats.honesty },
+                    { "trust", character.Stats.trust },
+                    { "honor", character.Stats.honor }
                 },
                 gameContext = new Dictionary<string, bool>
                 {
                     { "isInChallenge", ChallengeSystem.Instance.IsInChallenge() },
                     { "isVotingTime", VotingSystem.Instance.IsVotingActive },
-                    { "isPlayer", tribeMember.IsPlayer }
+                    { "isPlayer", character.IsPlayer }
                 },
-                playerHistory = GetPlayerHistory(tribeMember),
+                playerHistory = GetPlayerHistory(character),
                 dialoguePrompt = playerPrompt
             };
 
             return context;
         }
 
-        private string GetPlayerHistory(TribeMember tribeMember)
+        private string GetPlayerHistory(Character character)
         {
             // For now, return a simple history based on tribe membership
-            return $"Member of {tribeMember.tribeName} tribe.";
+            return $"Member of {character.TribeName} tribe.";
         }
 
         private string FormatPersonality(Dictionary<string, float> personality)

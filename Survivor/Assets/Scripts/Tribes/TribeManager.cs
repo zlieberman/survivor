@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using StarterAssets;
 using System.Linq;
 using Survivor.Generation;
+using Survivor.Characters;
 
 namespace Survivor.Tribes
 {
@@ -24,8 +25,8 @@ namespace Survivor.Tribes
         [Header("Prefabs")]
         public GameObject npcPrefab; // Reference to the NPC prefab to spawn
 
-        private Dictionary<string, List<TribeMember>> tribes = new Dictionary<string, List<TribeMember>>();
-        private List<TribeMember> tribeMembers = new List<TribeMember>();
+        private Dictionary<string, List<Character>> tribes = new Dictionary<string, List<Character>>();
+        private List<Character> tribeMembers = new List<Character>();
         private bool isInitialized = false;
         private CampGenerator campGenerator;
 
@@ -54,8 +55,8 @@ namespace Survivor.Tribes
             if (isInitialized) return;
 
             tribes.Clear();
-            tribes[tribeAName] = new List<TribeMember>();
-            tribes[tribeBName] = new List<TribeMember>();
+            tribes[tribeAName] = new List<Character>();
+            tribes[tribeBName] = new List<Character>();
 
             isInitialized = true;
             Debug.Log("TribeManager initialized");
@@ -88,7 +89,7 @@ namespace Survivor.Tribes
         private IEnumerator CreateTribe(string tribeName, bool includePlayer, bool spawnNPCs = true)
         {
             Debug.Log($"Starting to create tribe: {tribeName}");
-            List<TribeMember> tribeMembers = new List<TribeMember>();
+            List<Character> tribeMembers = new List<Character>();
             
             // Create NPCs for the tribe
             int npcCount = includePlayer ? 8 : 9; // 8 NPCs + player for tribe A, 9 NPCs for tribe B
@@ -101,20 +102,20 @@ namespace Survivor.Tribes
                 
                 // Create NPC GameObject
                 GameObject npcObject = Instantiate(npcPrefab, spawnPosition, Quaternion.identity);
-                TribeMember tribeMember = npcObject.GetComponent<TribeMember>();
+                Character character = npcObject.GetComponent<Character>();
                 
-                if (tribeMember != null)
+                if (character != null)
                 {
-                    // Initialize tribe member
+                    // Initialize character
                     string memberName = $"NPC_{tribeName}_{i + 1}";
-                    tribeMember.Initialize(memberName, tribeName, includePlayer && i == 0, i);
+                    character.Initialize(memberName, tribeName, includePlayer && i == 0, i);
                     
                     // Add to tribe
-                    tribes[tribeName].Add(tribeMember);
-                    tribeMembers.Add(tribeMember);
+                    tribes[tribeName].Add(character);
+                    tribeMembers.Add(character);
 
-                    // If we shouldn't spawn NPCs for this tribe, disable the GameObject
-                    if (!spawnNPCs && !tribeMember.IsPlayer)
+                    // Only spawn NPCs for TribeA (player's tribe) or if explicitly requested
+                    if (!spawnNPCs || (tribeName != tribeAName && !character.IsPlayer))
                     {
                         npcObject.SetActive(false);
                     }
@@ -123,7 +124,7 @@ namespace Survivor.Tribes
                 }
                 else
                 {
-                    Debug.LogError($"Failed to get TribeMember component for NPC in tribe {tribeName}");
+                    Debug.LogError($"Failed to get Character component for NPC in tribe {tribeName}");
                 }
                 
                 yield return null; // Wait one frame between each NPC creation
@@ -133,7 +134,7 @@ namespace Survivor.Tribes
             yield return null;
         }
 
-        private Vector3 FindValidSpawnPosition(List<TribeMember> existingMembers)
+        private Vector3 FindValidSpawnPosition(List<Character> existingMembers)
         {
             if (campGenerator == null || !campGenerator.CampPlaced)
             {
@@ -166,7 +167,7 @@ namespace Survivor.Tribes
 
                 // Check if position is valid (not too close to other NPCs)
                 validPosition = true;
-                foreach (TribeMember member in existingMembers)
+                foreach (Character member in existingMembers)
                 {
                     if (Vector3.Distance(position, member.transform.position) < minSpawnDistance)
                     {
@@ -199,17 +200,17 @@ namespace Survivor.Tribes
             return position;
         }
 
-        public List<TribeMember> GetTribeMembers(string tribeName)
+        public List<Character> GetTribeMembers(string tribeName)
         {
-            return tribes.ContainsKey(tribeName) ? tribes[tribeName] : new List<TribeMember>();
+            return tribes.ContainsKey(tribeName) ? tribes[tribeName] : new List<Character>();
         }
 
-        public TribeMember GetPlayer()
+        public Character GetPlayer()
         {
             return tribeMembers.FirstOrDefault(member => member.IsPlayer);
         }
 
-        public void EliminateMember(TribeMember member)
+        public void EliminateMember(Character member)
         {
             if (member != null)
             {
@@ -222,12 +223,12 @@ namespace Survivor.Tribes
             }
         }
 
-        public TribeMember GetNPCData(string npcName)
+        public Character GetNPCData(string npcName)
         {
-            return tribeMembers.FirstOrDefault(member => member.name == npcName);
+            return tribeMembers.FirstOrDefault(member => member.CharacterName == npcName);
         }
 
-        public void StartChallenge(List<TribeMember> participants)
+        public void StartChallenge(List<Character> participants)
         {
             foreach (var participant in participants)
             {
@@ -238,7 +239,7 @@ namespace Survivor.Tribes
             }
         }
 
-        public void EliminateParticipant(TribeMember member)
+        public void EliminateParticipant(Character member)
         {
             if (member != null)
             {
@@ -247,28 +248,28 @@ namespace Survivor.Tribes
             }
         }
 
-        public bool IsParticipantInChallenge(TribeMember member)
+        public bool IsParticipantInChallenge(Character member)
         {
             return member != null && member.IsInChallenge;
         }
 
-        public List<TribeMember> GetActiveParticipants()
+        public List<Character> GetActiveParticipants()
         {
             return tribeMembers.Where(member => member != null && member.IsInChallenge).ToList();
         }
 
         // INPCManager implementation
-        public TribeMember GetTribeMember(string memberName)
+        public Character GetTribeMember(string memberName)
         {
-            return tribeMembers.FirstOrDefault(member => member.name == memberName);
+            return tribeMembers.FirstOrDefault(member => member.CharacterName == memberName);
         }
 
-        public List<TribeMember> GetAllTribeMembers()
+        public List<Character> GetAllTribeMembers()
         {
-            return new List<TribeMember>(tribeMembers);
+            return new List<Character>(tribeMembers);
         }
 
-        public void AddTribeMember(TribeMember member)
+        public void AddTribeMember(Character member)
         {
             if (member != null && !tribeMembers.Contains(member))
             {
@@ -290,7 +291,7 @@ namespace Survivor.Tribes
         {
             return tribeMembers
                 .Where(member => member != null && member.gameObject.activeInHierarchy)
-                .Select(member => member.name)
+                .Select(member => member.CharacterName)
                 .ToList();
         }
 
@@ -299,7 +300,7 @@ namespace Survivor.Tribes
         {
             return tribeMembers
                 .Where(member => member != null && member.gameObject.activeInHierarchy)
-                .Select(member => member.name);
+                .Select(member => member.CharacterName);
         }
 
         public void UpdateRelationship(string npc1Name, string npc2Name, float delta)
@@ -310,8 +311,8 @@ namespace Survivor.Tribes
             if (npc1 != null && npc2 != null)
             {
                 // Update relationship in both directions
-                npc1.Relationships[npc2Name] = Mathf.Clamp((npc1.Relationships.ContainsKey(npc2Name) ? npc1.Relationships[npc2Name] : 0f) + delta, -1f, 1f);
-                npc2.Relationships[npc1Name] = Mathf.Clamp((npc2.Relationships.ContainsKey(npc1Name) ? npc2.Relationships[npc1Name] : 0f) + delta, -1f, 1f);
+                npc1.UpdateRelationship(npc2Name, delta);
+                npc2.UpdateRelationship(npc1Name, delta);
             }
         }
 
@@ -337,7 +338,7 @@ namespace Survivor.Tribes
                 return;
             }
 
-            foreach (TribeMember member in tribes[tribeName])
+            foreach (Character member in tribes[tribeName])
             {
                 if (!member.IsPlayer && !member.gameObject.activeInHierarchy)
                 {
@@ -345,7 +346,7 @@ namespace Survivor.Tribes
                     Vector3 spawnPosition = FindValidSpawnPosition(tribes[tribeName]);
                     member.transform.position = spawnPosition;
                     member.gameObject.SetActive(true);
-                    Debug.Log($"Spawned tribe member {member.memberName} at position {spawnPosition}");
+                    Debug.Log($"Spawned tribe member {member.CharacterName} at position {spawnPosition}");
                 }
             }
         }
