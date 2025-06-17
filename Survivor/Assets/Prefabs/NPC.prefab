@@ -312,6 +312,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 8187455079231382173, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8338988566280778634, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
       propertyPath: m_Layer
       value: 6
@@ -378,6 +382,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characterName: 
+  tribeName: 
   isPlayer: 0
   stats:
     perception: 0
@@ -394,6 +399,8 @@ MonoBehaviour:
     honesty: 0
     trust: 0
     honor: 0
+  isInChallenge: 0
+  gender: 0
   interactionRadius: 3
   playerLayer:
     serializedVersion: 2

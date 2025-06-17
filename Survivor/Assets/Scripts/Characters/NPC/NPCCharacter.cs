@@ -14,6 +14,7 @@ namespace Survivor.Characters
 
         private UnityEngine.CharacterController controller;
         private bool hasGeneratedStats = false;
+        private CharacterModelManager modelManager;
 
         protected override void Awake()
         {
@@ -33,11 +34,15 @@ namespace Survivor.Characters
                 return;
             }
 
+            // Assign gender first
+            gender = NPCGenerator.Instance.AssignGender(tribeName);
+            Debug.Log($"[NPCCharacter] Assigned gender: {gender}");
+
             // Generate random name and stats
             if (string.IsNullOrEmpty(characterName))
             {
                 Debug.Log("[NPCCharacter] Generating random name");
-                characterName = NPCGenerator.Instance.GenerateRandomName();
+                characterName = NPCGenerator.Instance.GenerateRandomName(gender);
                 Debug.Log($"[NPCCharacter] Generated name: {characterName}");
             }
             
@@ -55,6 +60,17 @@ namespace Survivor.Characters
                 nameTag.SetName(characterName);
             }
 
+            // Find or create CharacterModelManager
+            modelManager = FindObjectOfType<CharacterModelManager>();
+            if (modelManager == null)
+            {
+                GameObject managerObj = new GameObject("CharacterModelManager");
+                modelManager = managerObj.AddComponent<CharacterModelManager>();
+            }
+
+            // Assign character model based on gender
+            modelManager.AssignCharacterModel(this);
+
             Debug.Log($"[NPCCharacter] Initialized NPC: {characterName}");
         }
 
@@ -62,6 +78,17 @@ namespace Survivor.Characters
         {
             Debug.Log("[NPCCharacter] Initialize called");
             base.Initialize(name, tribe, false, id); // Force isPlayer to false for NPCs
+
+            // Assign gender if not already set
+            if (NPCGenerator.Instance != null && string.IsNullOrEmpty(characterName))
+            {
+                gender = NPCGenerator.Instance.AssignGender(tribeName);
+                Debug.Log($"[NPCCharacter] Assigned gender in Initialize: {gender}");
+                
+                // Generate name based on gender
+                characterName = NPCGenerator.Instance.GenerateRandomName(gender);
+                Debug.Log($"[NPCCharacter] Generated name in Initialize: {characterName}");
+            }
 
             // Re-generate stats if they haven't been generated yet
             if (!hasGeneratedStats && NPCGenerator.Instance != null)

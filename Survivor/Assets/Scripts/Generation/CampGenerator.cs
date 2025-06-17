@@ -210,9 +210,9 @@ namespace Survivor.Generation
             if (obj.name.ToLower().Contains("tent"))
             {
                 // Add a box collider for the tent
-                BoxCollider collider = obj.AddComponent<BoxCollider>();
-                collider.size = new Vector3(2f, 2f, 3f); // Adjust size based on your tent model
-                collider.center = new Vector3(0, 1f, 0);
+                // BoxCollider collider = obj.AddComponent<BoxCollider>();
+                // collider.size = new Vector3(2f, 2f, 3f); // Adjust size based on your tent model
+                // collider.center = new Vector3(0, 1f, 0);
             }
             else if (obj.name.ToLower().Contains("fire"))
             {

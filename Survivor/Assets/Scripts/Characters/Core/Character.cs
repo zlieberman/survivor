@@ -6,6 +6,12 @@ using Survivor.Characters.UI;
 
 namespace Survivor.Characters
 {
+    public enum Gender
+    {
+        Male,
+        Female
+    }
+
     public class Character : MonoBehaviour, IDialogueInteractable
     {
         [Header("Character Properties")]
@@ -15,6 +21,7 @@ namespace Survivor.Characters
         [SerializeField] protected Survivor.Shared.CharacterStats stats;
         [SerializeField] protected bool isInChallenge = false;
         [SerializeField] protected Dictionary<string, float> Relationships = new Dictionary<string, float>();
+        [SerializeField] protected Gender gender;
 
         // Public properties for external access
         public string CharacterName 
@@ -45,6 +52,11 @@ namespace Survivor.Characters
         { 
             get => isInChallenge;
             set => isInChallenge = value;
+        }
+        public Gender Gender
+        {
+            get => gender;
+            set => gender = value;
         }
         public IReadOnlyDictionary<string, float> CharacterRelationships => Relationships;
 
@@ -113,7 +125,7 @@ namespace Survivor.Characters
                 CreateNameTag();
             }
 
-            Debug.Log($"[Character] Initialization complete for {gameObject.name}. Current values - Name: {characterName}, Tribe: {tribeName}, IsPlayer: {isPlayer}");
+            Debug.Log($"[Character] Initialization complete for {gameObject.name}. Current values - Name: {characterName}, Tribe: {tribeName}, IsPlayer: {isPlayer}, Gender: {gender}");
         }
 
         public void UpdateRelationship(string otherCharacterName, float delta)

@@ -26,13 +26,19 @@ namespace Survivor.Characters
         [System.Serializable]
         private class NameData
         {
-            public string[] firstNames;
+            public string[] maleFirstNames;
+            public string[] femaleFirstNames;
             public string[] lastNames;
         }
 
-        private List<string> availableFirstNames = new List<string>();
+        private List<string> availableMaleFirstNames = new List<string>();
+        private List<string> availableFemaleFirstNames = new List<string>();
         private List<string> availableLastNames = new List<string>();
         private HashSet<string> usedNames = new HashSet<string>();
+        
+        // Track gender counts per tribe
+        private Dictionary<string, int> tribeMaleCounts = new Dictionary<string, int>();
+        private Dictionary<string, int> tribeFemaleCounts = new Dictionary<string, int>();
 
         private void Awake()
         {
@@ -55,7 +61,8 @@ namespace Survivor.Characters
             if (configFile != null)
             {
                 NameData nameData = JsonUtility.FromJson<NameData>(configFile.text);
-                availableFirstNames = new List<string>(nameData.firstNames);
+                availableMaleFirstNames = new List<string>(nameData.maleFirstNames);
+                availableFemaleFirstNames = new List<string>(nameData.femaleFirstNames);
                 availableLastNames = new List<string>(nameData.lastNames);
                 ShuffleNames();
                 Debug.Log("[NPCGenerator] Loaded name data successfully");
@@ -68,13 +75,22 @@ namespace Survivor.Characters
 
         private void ShuffleNames()
         {
-            // Fisher-Yates shuffle for first names
-            for (int i = availableFirstNames.Count - 1; i > 0; i--)
+            // Fisher-Yates shuffle for male first names
+            for (int i = availableMaleFirstNames.Count - 1; i > 0; i--)
             {
                 int j = Random.Range(0, i + 1);
-                string temp = availableFirstNames[i];
-                availableFirstNames[i] = availableFirstNames[j];
-                availableFirstNames[j] = temp;
+                string temp = availableMaleFirstNames[i];
+                availableMaleFirstNames[i] = availableMaleFirstNames[j];
+                availableMaleFirstNames[j] = temp;
+            }
+
+            // Fisher-Yates shuffle for female first names
+            for (int i = availableFemaleFirstNames.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                string temp = availableFemaleFirstNames[i];
+                availableFemaleFirstNames[i] = availableFemaleFirstNames[j];
+                availableFemaleFirstNames[j] = temp;
             }
 
             // Fisher-Yates shuffle for last names
@@ -87,24 +103,60 @@ namespace Survivor.Characters
             }
         }
 
-        public string GenerateRandomName()
+        public string GenerateRandomName(Gender gender)
         {
-            if (availableFirstNames.Count == 0 || availableLastNames.Count == 0)
+            // Check if we need to reset the name pools
+            if ((gender == Gender.Male && availableMaleFirstNames.Count == 0) ||
+                (gender == Gender.Female && availableFemaleFirstNames.Count == 0) ||
+                availableLastNames.Count == 0)
             {
-                // If we run out of names, reset the pools
                 LoadNameData();
             }
 
-            string firstName = availableFirstNames[0];
-            string lastName = availableLastNames[0];
-            string fullName = $"{firstName} {lastName}";
+            string firstName;
+            if (gender == Gender.Male)
+            {
+                firstName = availableMaleFirstNames[0];
+                availableMaleFirstNames.RemoveAt(0);
+            }
+            else
+            {
+                firstName = availableFemaleFirstNames[0];
+                availableFemaleFirstNames.RemoveAt(0);
+            }
 
-            availableFirstNames.RemoveAt(0);
+            string lastName = availableLastNames[0];
             availableLastNames.RemoveAt(0);
+
+            string fullName = $"{firstName} {lastName}";
             usedNames.Add(fullName);
 
-            Debug.Log($"[NPCGenerator] Generated name: {fullName}");
+            Debug.Log($"[NPCGenerator] Generated {gender} name: {fullName}");
             return fullName;
+        }
+
+        public Gender AssignGender(string tribeName)
+        {
+            // Initialize tribe counts if not present
+            if (!tribeMaleCounts.ContainsKey(tribeName))
+            {
+                tribeMaleCounts[tribeName] = 0;
+                tribeFemaleCounts[tribeName] = 0;
+            }
+
+            // Ensure even split within the tribe
+            if (tribeMaleCounts[tribeName] <= tribeFemaleCounts[tribeName])
+            {
+                tribeMaleCounts[tribeName]++;
+                Debug.Log($"[NPCGenerator] Assigned Male gender for tribe {tribeName} (Male: {tribeMaleCounts[tribeName]}, Female: {tribeFemaleCounts[tribeName]})");
+                return Gender.Male;
+            }
+            else
+            {
+                tribeFemaleCounts[tribeName]++;
+                Debug.Log($"[NPCGenerator] Assigned Female gender for tribe {tribeName} (Male: {tribeMaleCounts[tribeName]}, Female: {tribeFemaleCounts[tribeName]})");
+                return Gender.Female;
+            }
         }
 
         public void ReleaseName(string name)
@@ -114,11 +166,11 @@ namespace Survivor.Characters
                 string[] nameParts = name.Split(' ');
                 if (nameParts.Length == 2)
                 {
-                    availableFirstNames.Add(nameParts[0]);
-                    availableLastNames.Add(nameParts[1]);
+                    // We don't know which gender pool to return the name to
+                    // So we'll just keep it out of circulation
+                    Debug.Log($"[NPCGenerator] Released name: {name} (not returned to pool due to gender-specific pools)");
                 }
                 usedNames.Remove(name);
-                Debug.Log($"[NPCGenerator] Released name: {name}");
             }
         }
 

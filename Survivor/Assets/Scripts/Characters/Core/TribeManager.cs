@@ -100,7 +100,10 @@ namespace Survivor.Characters
                 
                 if (character != null)
                 {
-                    string memberName = NPCGenerator.Instance.GenerateRandomName();
+                    // Assign gender first
+                    Gender gender = NPCGenerator.Instance.AssignGender(tribeName);
+                    character.Gender = gender;
+                    string memberName = NPCGenerator.Instance.GenerateRandomName(gender);
                     character.Initialize(memberName, tribeName, includePlayer && i == 0, i);
                     
                     tribes[tribeName].Add(character);
