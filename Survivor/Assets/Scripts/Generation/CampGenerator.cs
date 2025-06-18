@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
 using System.Collections;
+using Survivor.Shared;
+using Survivor.Interactables;
 
 namespace Survivor.Generation
 {
@@ -11,17 +13,23 @@ namespace Survivor.Generation
         public GameObject tentPrefab;
         public GameObject campfirePrefab;
         public GameObject bannerPrefab;
+        public GameObject waterWellPrefab;  // New water well prefab
 
         [Header("Prefab Scale Settings")]
         public Vector3 tentScale = Vector3.one;
         public Vector3 campfireScale = Vector3.one;
         public Vector3 bannerScale = Vector3.one;
+        public Vector3 waterWellScale = Vector3.one;  // New water well scale
 
         [Header("Camp Settings")]
         public float distanceFromWater = 10f;
         public float campRadius = 10f;  // How spread out the camp items should be
         public string tribeName = "Premio Tribe";
         public float clearTreesRadius = 1f; // Radius to clear trees around camp
+        public float minWellDistance = 10f;  // Minimum distance from camp center
+        public float maxWellDistance = 50f;  // Maximum distance from camp center
+        public float wellClearRadius = 5f;  // Radius to clear trees around well (increased from 3f)
+        public float defaultIslandHeight = 0.2f;  // Minimum height for valid terrain
 
         [Header("Banner Settings")]
         public float bannerHeight = 3f;
@@ -174,6 +182,44 @@ namespace Survivor.Generation
                 AddCampObjectPhysics(banner);
                 SetupBanner(banner);
 
+                // Place water well
+                if (waterWellPrefab != null)
+                {
+                    Vector3 wellPosition = FindWellLocation(tentPosition);
+                    if (wellPosition != Vector3.zero)
+                    {
+                        GameObject well = Instantiate(waterWellPrefab, wellPosition, Quaternion.identity);
+                        well.transform.parent = transform;
+                        well.transform.localScale = waterWellScale;
+                        
+                        // Set the layer to Interactable
+                        well.layer = LayerMask.NameToLayer("Interactable");
+                        
+                        // Add the physical collider for collision
+                        AddCampObjectPhysics(well);
+                        
+                        // Add and configure the trigger collider for interaction
+                        CapsuleCollider triggerCollider = well.AddComponent<CapsuleCollider>();
+                        triggerCollider.radius = 0.35f;
+                        triggerCollider.height = 2f;
+                        triggerCollider.center = new Vector3(0, 1f, 0);
+                        triggerCollider.isTrigger = true;  // Make it a trigger collider
+                        
+                        // Add WaterWellInteractable component
+                        well.AddComponent<WaterWellInteractable>();
+                        
+                        Debug.Log($"Water well placed at {wellPosition}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("Could not place water well - no suitable location found");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("Water well prefab not assigned");
+                }
+
                 Debug.Log($"Camp generated successfully at position: {tentPosition}");
                 CampPlaced = true;
 
@@ -229,6 +275,14 @@ namespace Survivor.Generation
                 collider.size = new Vector3(0.2f, 3f, 0.2f);
                 collider.center = new Vector3(0, 1.5f, 0);
             }
+            else if (obj.name.ToLower().Contains("well"))
+            {
+                // Add a cylinder collider for the water well
+                CapsuleCollider collider = obj.AddComponent<CapsuleCollider>();
+                collider.radius = 0.35f;
+                collider.height = 2f;
+                collider.center = new Vector3(0, 1f, 0);
+            }
         }
 
         private void AlignObjectToTerrain(GameObject obj, Vector3 normal)
@@ -272,6 +326,26 @@ namespace Survivor.Generation
 
             // Update the terrain with remaining trees
             terrainData.SetTreeInstances(remainingTrees.ToArray(), true);
+
+            // Clear any bushes or other vegetation in the area
+            Collider[] colliders = Physics.OverlapSphere(center, radius);
+            foreach (Collider collider in colliders)
+            {
+                // Check if the object is a bush or vegetation
+                if (collider.gameObject.name.ToLower().Contains("bush") || 
+                    collider.gameObject.name.ToLower().Contains("vegetation") ||
+                    collider.gameObject.name.ToLower().Contains("plant"))
+                {
+                    // Only destroy if it's not part of the camp itself
+                    if (!collider.gameObject.name.ToLower().Contains("well") &&
+                        !collider.gameObject.name.ToLower().Contains("tent") &&
+                        !collider.gameObject.name.ToLower().Contains("banner") &&
+                        !collider.gameObject.name.ToLower().Contains("fire"))
+                    {
+                        Destroy(collider.gameObject);
+                    }
+                }
+            }
         }
 
         private Vector3 GetTerrainNormal(Vector3 worldPos)
@@ -418,6 +492,66 @@ namespace Survivor.Generation
             }
 
             Debug.Log($"Player spawned at camp: {spawnPosition}, Height: {y}");
+        }
+
+        private Vector3 FindWellLocation(Vector3 campCenter)
+        {
+            if (terrain == null || islandGenerator == null)
+            {
+                Debug.LogError("No Terrain or IslandGenerator component found!");
+                return Vector3.zero;
+            }
+
+            // Get island information
+            Vector3 islandCenter = islandGenerator.GetIslandCenter();
+            float islandRadius = islandGenerator.IslandRadius;
+            float maxWellRadius = islandRadius * 0.6f; // 60% of island radius
+
+            // Try multiple positions to find a suitable well location
+            for (int attempts = 0; attempts < 30; attempts++)
+            {
+                // Pick a random angle and distance within the specified range
+                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+                float distance = Random.Range(minWellDistance, maxWellDistance);
+                
+                // Calculate position relative to camp center
+                Vector3 offset = new Vector3(
+                    Mathf.Cos(angle) * distance,
+                    0,
+                    Mathf.Sin(angle) * distance
+                );
+                
+                Vector3 wellPosition = campCenter + offset;
+                
+                // Check if the position is within the island's radius
+                float distanceFromIslandCenter = Vector3.Distance(
+                    new Vector3(wellPosition.x, 0, wellPosition.z),
+                    new Vector3(islandCenter.x, 0, islandCenter.z)
+                );
+                
+                if (distanceFromIslandCenter > maxWellRadius)
+                {
+                    continue; // Try another position if too far from island center
+                }
+                
+                // Get the exact height at this position
+                float terrainHeight = terrain.SampleHeight(wellPosition);
+                wellPosition.y = terrainHeight;
+
+                // Check if the position is valid (not in water, not too close to camp)
+                if (terrainHeight > defaultIslandHeight && 
+                    Vector3.Distance(new Vector3(wellPosition.x, 0, wellPosition.z), 
+                                   new Vector3(campCenter.x, 0, campCenter.z)) >= minWellDistance)
+                {
+                    // Clear trees in the area
+                    ClearTreesInArea(wellPosition, wellClearRadius);
+                    Debug.Log($"Found well location at {wellPosition}, distance from island center: {distanceFromIslandCenter}, max allowed: {maxWellRadius}");
+                    return wellPosition;
+                }
+            }
+
+            Debug.LogWarning("Could not find suitable well location after 30 attempts!");
+            return Vector3.zero;
         }
     }
 } 

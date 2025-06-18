@@ -4,6 +4,7 @@
     "references": [
         "Survivor.Common",
         "Survivor.Shared",
+        "Survivor.Interactables",
         "Unity.AI.Navigation"
     ],
     "includePlatforms": [],

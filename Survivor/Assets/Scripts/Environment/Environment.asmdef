@@ -3,8 +3,7 @@
     "rootNamespace": "Survivor.Environment",
     "references": [
         "Survivor.Common",
-        "Survivor.Shared",
-        "Survivor.Generation"
+        "Survivor.Shared"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

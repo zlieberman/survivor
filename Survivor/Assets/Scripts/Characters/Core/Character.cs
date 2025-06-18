@@ -12,7 +12,7 @@ namespace Survivor.Characters
         Female
     }
 
-    public class Character : MonoBehaviour, IDialogueInteractable
+    public class Character : MonoBehaviour, IDialogueInteractable, ICharacterStats
     {
         [Header("Character Properties")]
         [SerializeField] protected string characterName;
@@ -22,6 +22,13 @@ namespace Survivor.Characters
         [SerializeField] protected bool isInChallenge = false;
         [SerializeField] protected Dictionary<string, float> Relationships = new Dictionary<string, float>();
         [SerializeField] protected Gender gender;
+
+        // ICharacterStats implementation
+        public float thirst
+        {
+            get => stats.thirst;
+            set => stats.thirst = value;
+        }
 
         // Public properties for external access
         public string CharacterName 

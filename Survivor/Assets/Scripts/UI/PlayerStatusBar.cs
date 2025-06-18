@@ -19,6 +19,11 @@ namespace Survivor.UI
         [SerializeField] private TextMeshProUGUI thirstText;
 
         private Character playerCharacter;
+        
+        // Cache previous values to avoid unnecessary updates and logging
+        private float previousEnergyFill = -1f;
+        private float previousHungerFill = -1f;
+        private float previousThirstFill = -1f;
 
         private void Start()
         {
@@ -86,8 +91,12 @@ namespace Survivor.UI
             if (energyBarFill != null)
             {
                 float energyFill = stats.energy / 100f;
-                energyBarFill.fillAmount = energyFill;
-                Debug.Log($"[PlayerStatusBar] Energy fill amount: {energyFill}");
+                if (energyFill != previousEnergyFill)
+                {
+                    energyBarFill.fillAmount = energyFill;
+                    Debug.Log($"[PlayerStatusBar] Energy fill amount: {energyFill}");
+                    previousEnergyFill = energyFill;
+                }
             }
             if (energyText != null)
             {
@@ -98,8 +107,12 @@ namespace Survivor.UI
             if (hungerBarFill != null)
             {
                 float hungerFill = stats.hunger / 10f;
-                hungerBarFill.fillAmount = hungerFill;
-                Debug.Log($"[PlayerStatusBar] Hunger fill amount: {hungerFill}");
+                if (hungerFill != previousHungerFill)
+                {
+                    hungerBarFill.fillAmount = hungerFill;
+                    Debug.Log($"[PlayerStatusBar] Hunger fill amount: {hungerFill}");
+                    previousHungerFill = hungerFill;
+                }
             }
             if (hungerText != null)
             {
@@ -110,8 +123,12 @@ namespace Survivor.UI
             if (thirstBarFill != null)
             {
                 float thirstFill = stats.thirst / 10f;
-                thirstBarFill.fillAmount = thirstFill;
-                Debug.Log($"[PlayerStatusBar] Thirst fill amount: {thirstFill}");
+                if (thirstFill != previousThirstFill)
+                {
+                    thirstBarFill.fillAmount = thirstFill;
+                    Debug.Log($"[PlayerStatusBar] Thirst fill amount: {thirstFill}");
+                    previousThirstFill = thirstFill;
+                }
             }
             if (thirstText != null)
             {
