@@ -4255,6 +4255,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tentPrefab: {fileID: 100000, guid: d50e1716f4409734fbbe85f9cd2168ab, type: 3}
   campfirePrefab: {fileID: 100000, guid: c9b8f1f6cbefe9a42ab5b51b37ad5781, type: 3}
+  litCampfirePrefab: {fileID: 1179792248266456, guid: 96c179d73c7164f73b64401bc8249f54, type: 3}
   bannerPrefab: {fileID: 100000, guid: 015c964e36159d64c88a2bf91972d61b, type: 3}
   waterWellPrefab: {fileID: 1194426129884200, guid: 6f36196fa45b4bf458acb1e445499ce1, type: 3}
   tentScale: {x: 0.2, y: 2, z: 0.2}

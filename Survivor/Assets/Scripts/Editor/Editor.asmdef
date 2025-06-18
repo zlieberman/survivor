@@ -4,6 +4,7 @@
     "references": [
         "Survivor.Shared",
         "Survivor.Challenges",
+        "Survivor.Interactables",
         "Unity.TextMeshPro",
         "Unity.InputSystem",
         "UnityEngine",

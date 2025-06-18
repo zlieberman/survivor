@@ -12,6 +12,7 @@ namespace Survivor.Generation
         [Header("Camp Prefabs")]
         public GameObject tentPrefab;
         public GameObject campfirePrefab;
+        public GameObject litCampfirePrefab;  // The lit campfire prefab to spawn when campfire is interacted with
         public GameObject bannerPrefab;
         public GameObject waterWellPrefab;  // New water well prefab
 
@@ -170,7 +171,39 @@ namespace Survivor.Generation
                 GameObject fire = Instantiate(campfirePrefab, firePosition, Quaternion.identity);
                 fire.transform.parent = transform;
                 fire.transform.localScale = campfireScale;
+                
+                // Set the layer to Interactable
+                fire.layer = LayerMask.NameToLayer("Interactable");
+                
+                // Add the physical collider for collision
                 AddCampObjectPhysics(fire);
+                
+                // Add physical collider for campfire (since we skipped it in AddCampObjectPhysics)
+                CapsuleCollider physicalCollider = fire.AddComponent<CapsuleCollider>();
+                physicalCollider.radius = 0.5f;
+                physicalCollider.height = 1f;
+                physicalCollider.center = new Vector3(0, 0.5f, 0);
+                
+                // Add and configure the trigger collider for interaction
+                SphereCollider triggerCollider = fire.AddComponent<SphereCollider>();
+                triggerCollider.radius = 3f;  // Interaction radius
+                triggerCollider.isTrigger = true;  // Make it a trigger collider
+                
+                // Add CampfireInteractable component
+                CampfireInteractable campfireInteractable = fire.AddComponent<CampfireInteractable>();
+                
+                // Assign the lit campfire prefab if provided
+                if (litCampfirePrefab != null)
+                {
+                    campfireInteractable.litCampfirePrefab = litCampfirePrefab;
+                    Debug.Log("Assigned lit campfire prefab to campfire interactable");
+                }
+                else
+                {
+                    Debug.LogWarning("Lit campfire prefab not assigned! Campfire won't be able to light.");
+                }
+                
+                Debug.Log($"Campfire placed at {firePosition}");
 
                 // Place banner near tent
                 Vector3 bannerOffset = new Vector3(-3f, 0, 7f);
@@ -199,11 +232,11 @@ namespace Survivor.Generation
                         AddCampObjectPhysics(well);
                         
                         // Add and configure the trigger collider for interaction
-                        CapsuleCollider triggerCollider = well.AddComponent<CapsuleCollider>();
-                        triggerCollider.radius = 0.35f;
-                        triggerCollider.height = 2f;
-                        triggerCollider.center = new Vector3(0, 1f, 0);
-                        triggerCollider.isTrigger = true;  // Make it a trigger collider
+                        CapsuleCollider wellTriggerCollider = well.AddComponent<CapsuleCollider>();
+                        wellTriggerCollider.radius = 0.35f;
+                        wellTriggerCollider.height = 2f;
+                        wellTriggerCollider.center = new Vector3(0, 1f, 0);
+                        wellTriggerCollider.isTrigger = true;  // Make it a trigger collider
                         
                         // Add WaterWellInteractable component
                         well.AddComponent<WaterWellInteractable>();
@@ -262,11 +295,8 @@ namespace Survivor.Generation
             }
             else if (obj.name.ToLower().Contains("fire"))
             {
-                // Add a cylinder collider for the campfire
-                CapsuleCollider collider = obj.AddComponent<CapsuleCollider>();
-                collider.radius = 0.5f;
-                collider.height = 1f;
-                collider.center = new Vector3(0, 0.5f, 0);
+                // Skip adding physical collider for campfire since we handle it in the main placement code
+                // The trigger collider for interaction is added separately
             }
             else if (obj.name.ToLower().Contains("banner"))
             {
