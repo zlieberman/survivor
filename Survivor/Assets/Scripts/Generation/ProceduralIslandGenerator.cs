@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using Survivor.Shared;
+using System;
+using Survivor.Items;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -19,10 +21,14 @@ namespace Survivor.Generation
         {
             public GameObject[] treePrefabs = new GameObject[0];
             public GameObject[] bushPrefabs = new GameObject[0];
+            public GameObject coconutPrefab;
             public int treeCount = 300;
             public int bushCount = 200;
             public float minTreeHeight = 1f;
             public float maxDistanceFromCamp = 15f;
+            [Range(0f, 1f)]
+            public float coconutSpawnChance = 0.3f; // 30% chance for a tree to have a coconut
+            public float coconutOffsetFromTree = 1.5f; // Distance from tree to place coconut
         }
 
         [System.Serializable]
@@ -386,11 +392,11 @@ namespace Survivor.Generation
             float segmentLength = terrainSize / (river.riverSegments - 1);
 
             // Start from a random edge point
-            float startX = Random.Range(0, terrainSize);
-            float startZ = Random.Range(0, terrainSize);
+            float startX = UnityEngine.Random.Range(0, terrainSize);
+            float startZ = UnityEngine.Random.Range(0, terrainSize);
             
             // Decide if river goes roughly north-south or east-west
-            bool isNorthSouth = Random.value > 0.5f;
+            bool isNorthSouth = UnityEngine.Random.value > 0.5f;
             
             for (int i = 0; i < river.riverSegments; i++)
             {
@@ -479,7 +485,13 @@ namespace Survivor.Generation
             // Place trees
             for (int i = 0; i < vegetation.treeCount; i++)
             {
-                PlaceRandomVegetation(vegetation.treePrefabs[Random.Range(0, vegetation.treePrefabs.Length)], vegetationParent.transform);
+                GameObject tree = PlaceRandomVegetation(vegetation.treePrefabs[UnityEngine.Random.Range(0, vegetation.treePrefabs.Length)], vegetationParent.transform);
+                
+                // Try to place a coconut near the tree
+                if (tree != null && vegetation.coconutPrefab != null && UnityEngine.Random.value < vegetation.coconutSpawnChance)
+                {
+                    PlaceCoconutNearTree(tree, vegetationParent.transform);
+                }
             }
 
             // Place bushes if we have bush prefabs
@@ -487,14 +499,14 @@ namespace Survivor.Generation
             {
                 for (int i = 0; i < vegetation.bushCount; i++)
                 {
-                    PlaceRandomVegetation(vegetation.bushPrefabs[Random.Range(0, vegetation.bushPrefabs.Length)], vegetationParent.transform);
+                    PlaceRandomVegetation(vegetation.bushPrefabs[UnityEngine.Random.Range(0, vegetation.bushPrefabs.Length)], vegetationParent.transform);
                 }
             }
         }
 
-        private void PlaceRandomVegetation(GameObject prefab, Transform parent)
+        private GameObject PlaceRandomVegetation(GameObject prefab, Transform parent)
         {
-            if (prefab == null) return;
+            if (prefab == null) return null;
 
             float terrainWidth = terrainData.size.x;
             float terrainLength = terrainData.size.z;
@@ -504,8 +516,8 @@ namespace Survivor.Generation
             for (int attempts = 0; attempts < 30; attempts++) // Increased attempts to find valid position
             {
                 // Get random position within island bounds using polar coordinates
-                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-                float distance = Random.Range(0f, islandRadius);
+                float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+                float distance = UnityEngine.Random.Range(0f, islandRadius);
                 
                 // Convert polar to cartesian coordinates
                 float x = islandCenter.x + Mathf.Cos(angle) * distance;
@@ -519,11 +531,11 @@ namespace Survivor.Generation
                 if (IsValidVegetationPosition(position))
                 {
                     // Create vegetation object
-                    GameObject vegetation = Instantiate(prefab, position, Quaternion.Euler(0, Random.Range(0, 360), 0));
+                    GameObject vegetation = Instantiate(prefab, position, Quaternion.Euler(0, UnityEngine.Random.Range(0, 360), 0));
                     vegetation.transform.parent = parent;
 
                     // Add slight random scale variation
-                    float scale = Random.Range(0.8f, 1.2f);
+                    float scale = UnityEngine.Random.Range(0.8f, 1.2f);
                     vegetation.transform.localScale *= scale;
 
                     // Add appropriate physics components based on whether it's a tree or bush
@@ -575,8 +587,49 @@ namespace Survivor.Generation
                         bushCollider.isTrigger = true;
                         bushCollider.radius = vegetation.transform.localScale.x * 0.5f;
                     }
-                    break;
+                    return vegetation;
                 }
+            }
+            return null;
+        }
+
+        private void PlaceCoconutNearTree(GameObject tree, Transform parent)
+        {
+            if (vegetation.coconutPrefab == null) return;
+
+            // Get a random angle around the tree
+            float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            
+            // Calculate position offset from tree
+            Vector3 offset = new Vector3(
+                Mathf.Cos(angle) * vegetation.coconutOffsetFromTree,
+                0,
+                Mathf.Sin(angle) * vegetation.coconutOffsetFromTree
+            );
+
+            // Get the ground height at the coconut position
+            Vector3 coconutPosition = tree.transform.position + offset;
+            float groundHeight = terrain.SampleHeight(coconutPosition);
+            coconutPosition.y = groundHeight + 0.2f;
+
+            // Instantiate the coconut
+            GameObject coconut = Instantiate(vegetation.coconutPrefab, coconutPosition, Quaternion.identity);
+            coconut.transform.parent = parent;
+
+            // Set the layer to Interactable
+            coconut.layer = LayerMask.NameToLayer("Interactable");
+            Debug.Log($"[ProceduralIslandGenerator] Created coconut at {coconutPosition} on layer {LayerMask.LayerToName(coconut.layer)}");
+
+            // Add a collider for interaction
+            SphereCollider collider = coconut.AddComponent<SphereCollider>();
+            collider.radius = 0.5f;
+            collider.isTrigger = true;
+
+            // Add the Coconut component if it's not already there
+            if (coconut.GetComponent<Survivor.Items.Coconut>() == null)
+            {
+                Debug.Log("[ProceduralIslandGenerator] Adding Coconut script to coconut");
+                coconut.AddComponent<Survivor.Items.Coconut>();
             }
         }
 

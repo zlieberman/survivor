@@ -9,6 +9,7 @@
         "Survivor.Generation",
         "Survivor.Shared",
         "Survivor.Shared.Interfaces",
+        "Survivor.Items",
         "Unity.AI.Navigation",
         "Unity.AI.Navigation.Editor",
         "Unity.InputSystem",

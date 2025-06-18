@@ -5,7 +5,8 @@
         "Survivor.Common",
         "Survivor.Shared",
         "Survivor.Interactables",
-        "Unity.AI.Navigation"
+        "Unity.AI.Navigation",
+        "Survivor.Items"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

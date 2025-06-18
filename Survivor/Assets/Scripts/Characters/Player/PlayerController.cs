@@ -10,6 +10,7 @@ using UnityEngine.UI;
 namespace Survivor.Characters
 {
     [RequireComponent(typeof(UnityEngine.CharacterController))]
+    [RequireComponent(typeof(Inventory))]
     public class PlayerController : MonoBehaviour
     {
         [Header("Movement")]
@@ -34,8 +35,20 @@ namespace Survivor.Characters
         private DialogueManager dialogueManager;
         private PlayerManager playerManager;
         private UnityEngine.CharacterController controller;
+        private Inventory inventory;
         private Vector3 velocity;
         private Camera mainCamera;
+
+        protected virtual void Awake()
+        {
+            // Ensure Inventory component exists
+            inventory = GetComponent<Inventory>();
+            if (inventory == null)
+            {
+                Debug.Log("[PlayerController] Adding missing Inventory component");
+                inventory = gameObject.AddComponent<Inventory>();
+            }
+        }
 
         protected virtual void Start()
         {

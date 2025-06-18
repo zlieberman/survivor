@@ -3,10 +3,10 @@ using Survivor.Common;
 using Survivor.Core;
 using Survivor.Characters;
 using Survivor.Environment;
+using Survivor.Generation;
 using Survivor.Challenges;
 using System.Collections;
 using System.Collections.Generic;
-using Survivor.Generation;
 using Cinemachine;
 
 namespace Survivor.Core
@@ -32,7 +32,7 @@ namespace Survivor.Core
         [SerializeField] private GameObject playerPrefab;
 
         [Header("Island Generation")]
-        [SerializeField] private ProceduralIslandGenerator islandGenerator;
+        [SerializeField] private Survivor.Generation.ProceduralIslandGenerator islandGenerator;
 
         private void Awake()
         {

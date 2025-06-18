@@ -4,6 +4,7 @@
     "references": [
         "Survivor.Shared",
         "Survivor.Shared.Interfaces",
+        "Survivor.Items",
         "Survivor.UI",
         "Survivor.Characters",
         "Survivor.Generation",
