@@ -22,6 +22,7 @@ namespace Survivor.Generation
             public GameObject[] treePrefabs = new GameObject[0];
             public GameObject[] bushPrefabs = new GameObject[0];
             public GameObject coconutPrefab;
+            public GameObject firewoodPrefab;
             public int treeCount = 300;
             public int bushCount = 200;
             public float minTreeHeight = 1f;
@@ -29,6 +30,9 @@ namespace Survivor.Generation
             [Range(0f, 1f)]
             public float coconutSpawnChance = 0.3f; // 30% chance for a tree to have a coconut
             public float coconutOffsetFromTree = 1.5f; // Distance from tree to place coconut
+            [Range(0f, 1f)]
+            public float firewoodSpawnChance = 0.15f; // 15% chance for a tree to have firewood
+            public float firewoodOffsetFromTree = 2.0f; // Distance from tree to place firewood
         }
 
         [System.Serializable]
@@ -492,6 +496,12 @@ namespace Survivor.Generation
                 {
                     PlaceCoconutNearTree(tree, vegetationParent.transform);
                 }
+
+                // Try to place firewood near the tree
+                if (tree != null && vegetation.firewoodPrefab != null && UnityEngine.Random.value < vegetation.firewoodSpawnChance)
+                {
+                    PlaceFirewoodNearTree(tree, vegetationParent.transform);
+                }
             }
 
             // Place bushes if we have bush prefabs
@@ -630,6 +640,46 @@ namespace Survivor.Generation
             {
                 Debug.Log("[ProceduralIslandGenerator] Adding Coconut script to coconut");
                 coconut.AddComponent<Survivor.Items.Coconut>();
+            }
+        }
+
+        private void PlaceFirewoodNearTree(GameObject tree, Transform parent)
+        {
+            if (vegetation.firewoodPrefab == null) return;
+
+            // Get a random angle around the tree
+            float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            
+            // Calculate position offset from tree
+            Vector3 offset = new Vector3(
+                Mathf.Cos(angle) * vegetation.firewoodOffsetFromTree,
+                0,
+                Mathf.Sin(angle) * vegetation.firewoodOffsetFromTree
+            );
+
+            // Get the ground height at the firewood position
+            Vector3 firewoodPosition = tree.transform.position + offset;
+            float groundHeight = terrain.SampleHeight(firewoodPosition);
+            firewoodPosition.y = groundHeight + 0.2f;
+
+            // Instantiate the firewood
+            GameObject firewood = Instantiate(vegetation.firewoodPrefab, firewoodPosition, Quaternion.identity);
+            firewood.transform.parent = parent;
+
+            // Set the layer to Interactable
+            firewood.layer = LayerMask.NameToLayer("Interactable");
+            Debug.Log($"[ProceduralIslandGenerator] Created firewood at {firewoodPosition} on layer {LayerMask.LayerToName(firewood.layer)}");
+
+            // Add a collider for interaction
+            SphereCollider collider = firewood.AddComponent<SphereCollider>();
+            collider.radius = 0.5f;
+            collider.isTrigger = true;
+
+            // Add the Firewood component if it's not already there
+            if (firewood.GetComponent<Survivor.Items.Firewood>() == null)
+            {
+                Debug.Log("[ProceduralIslandGenerator] Adding Firewood script to firewood");
+                firewood.AddComponent<Survivor.Items.Firewood>();
             }
         }
 

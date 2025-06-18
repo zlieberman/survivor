@@ -4156,12 +4156,15 @@ MonoBehaviour:
     - {fileID: 171474, guid: f62058cb710fd1745a24102fff0edd46, type: 3}
     - {fileID: 171474, guid: f62058cb710fd1745a24102fff0edd46, type: 3}
     coconutPrefab: {fileID: 7791607975242654719, guid: 0f2b3fec567223a4e99380b832464c68, type: 3}
+    firewoodPrefab: {fileID: 1314062516146438, guid: 88d1ede2fffb08d4ea703db44dc01e22, type: 3}
     treeCount: 300
     bushCount: 200
     minTreeHeight: 0.2
     maxDistanceFromCamp: 5
     coconutSpawnChance: 0.3
     coconutOffsetFromTree: 1.5
+    firewoodSpawnChance: 0.15
+    firewoodOffsetFromTree: 2
   river:
     riverMaterial: {fileID: 2100000, guid: 3758617c6155f4ae7ace504b7e4a6ca3, type: 2}
     riverWidth: 5
