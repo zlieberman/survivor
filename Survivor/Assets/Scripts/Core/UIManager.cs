@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using Survivor.Challenges;
 using Survivor.Characters;
+using Survivor.UI;
 
 namespace Survivor.Core
 {
@@ -35,6 +36,9 @@ namespace Survivor.Core
         public Transform relationshipsContainer;
         public GameObject statPrefab;
         public GameObject relationshipPrefab;
+
+        [Header("Player Status")]
+        public PlayerStatusBar playerStatusBar;
 
         private GameObject mainMenuPanel;
         private GameObject gameHudPanel;
@@ -214,6 +218,11 @@ namespace Survivor.Core
                 DisplayStat("Honesty", character.Stats.honesty);
                 DisplayStat("Trust", character.Stats.trust);
                 DisplayStat("Honor", character.Stats.honor);
+
+                // Display game-impacted stats
+                DisplayStat("Energy", character.Stats.energy);
+                DisplayStat("Hunger", character.Stats.hunger);
+                DisplayStat("Thirst", character.Stats.thirst);
             }
 
             // Clear existing relationships
@@ -277,6 +286,12 @@ namespace Survivor.Core
 
             // Hide all panels initially
             HideAllPanels();
+
+            // Ensure player status bar is visible when game HUD is shown
+            if (playerStatusBar != null)
+            {
+                playerStatusBar.gameObject.SetActive(true);
+            }
         }
 
         public void ShowMainMenu()

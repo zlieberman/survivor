@@ -194,6 +194,11 @@ namespace Survivor.Characters
             stats.trust = GenerateNormalRandom(50, 30);
             stats.honor = GenerateNormalRandom(50, 30);
 
+            // Initialize game-impacted stats
+            stats.energy = 100f;  // Start with full energy
+            stats.hunger = 0f;    // Start with no hunger
+            stats.thirst = 0f;    // Start with no thirst
+
             Debug.Log("[NPCGenerator] Generated random stats");
             return stats;
         }

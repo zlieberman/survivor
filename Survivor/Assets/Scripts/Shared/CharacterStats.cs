@@ -33,5 +33,15 @@ namespace Survivor.Shared
         public float trust;
         [Range(0, 100)]
         public float honor;
+        [Range(0, 100)]
+        public float grit;
+
+        [Header("Game Impacted Stats")]
+        [Range(0, 100)]
+        public float energy = 100f;
+        [Range(0, 10)]
+        public float hunger = 0f;
+        [Range(0, 10)]
+        public float thirst = 0f;
     }
 } 

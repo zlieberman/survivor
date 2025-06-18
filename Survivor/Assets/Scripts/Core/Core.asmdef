@@ -12,7 +12,8 @@
         "Survivor.Generation",
         "Survivor.Shared",
         "Cinemachine",
-        "Survivor.Characters"
+        "Survivor.Characters",
+        "Survivor.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

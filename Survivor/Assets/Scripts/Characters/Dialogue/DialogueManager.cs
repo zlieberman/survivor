@@ -254,6 +254,9 @@ namespace Survivor.Characters.Dialogue
                         tribeContext += $"Honesty: {player.Stats.honesty}, ";
                         tribeContext += $"Trust: {player.Stats.trust}, ";
                         tribeContext += $"Honor: {player.Stats.honor}. ";
+                        tribeContext += $"Energy: {player.Stats.energy}, ";
+                        tribeContext += $"Hunger: {player.Stats.hunger}, ";
+                        tribeContext += $"Thirst: {player.Stats.thirst}. ";
                     }
                     
                     // Add other tribe members context
@@ -278,7 +281,10 @@ namespace Survivor.Characters.Dialogue
                                 tribeContext += $"Charisma: {member.Stats.charisma}, ";
                                 tribeContext += $"Honesty: {member.Stats.honesty}, ";
                                 tribeContext += $"Trust: {member.Stats.trust}, ";
-                                tribeContext += $"Honor: {member.Stats.honor}), ";
+                                tribeContext += $"Honor: {member.Stats.honor}, ";
+                                tribeContext += $"Energy: {member.Stats.energy}, ";
+                                tribeContext += $"Hunger: {member.Stats.hunger}, ";
+                                tribeContext += $"Thirst: {member.Stats.thirst}), ";
                             }
                         }
                         tribeContext = tribeContext.TrimEnd(',', ' ') + ". ";
@@ -300,6 +306,9 @@ namespace Survivor.Characters.Dialogue
                     tribeContext += $"Honesty: {currentInteractable.Stats.honesty}, ";
                     tribeContext += $"Trust: {currentInteractable.Stats.trust}, ";
                     tribeContext += $"Honor: {currentInteractable.Stats.honor}. ";
+                    tribeContext += $"Energy: {currentInteractable.Stats.energy}, ";
+                    tribeContext += $"Hunger: {currentInteractable.Stats.hunger}, ";
+                    tribeContext += $"Thirst: {currentInteractable.Stats.thirst}. ";
                     
                     tribeContext += "Respond naturally and concisely to the player's messages, taking into account your tribe members' stats and your own stats.";
                     
