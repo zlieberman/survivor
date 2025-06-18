@@ -8,12 +8,18 @@ using System.Linq;
 
 namespace Survivor.Core
 {
-    public class TimeManager : MonoBehaviour
+    public class TimeManager : MonoBehaviour, ITimeProvider
     {
         public static TimeManager Instance { get; private set; }
 
         [Header("Time Settings")]
         [SerializeField] private float realTimePerGameHour = 120f; // 2 minutes = 1 hour
+
+        // Public property to access realTimePerGameHour
+        public float RealTimePerGameHour => realTimePerGameHour;
+        
+        // ITimeProvider implementation
+        public float ElapsedRealTime { get; private set; } = 0f;
 
         [Header("Events")]
         public UnityEvent onGameHourPassed; // Event triggered every game hour
@@ -33,7 +39,15 @@ namespace Survivor.Core
 
         private void Start()
         {
+            // Register this TimeManager as the time provider
+            GameTimeService.RegisterTimeProvider(this);
             StartCoroutine(UpdateGameTime());
+        }
+
+        private void Update()
+        {
+            // Track elapsed real time
+            ElapsedRealTime += Time.deltaTime;
         }
 
         private IEnumerator UpdateGameTime()
@@ -159,6 +173,15 @@ namespace Survivor.Core
             stats.energy = Mathf.Clamp(stats.energy - energyDecrease, 0f, 100f);
 
             Debug.Log($"[TimeManager] Updated player stats - Hunger: +{hungerIncrease:F2}, Thirst: +{thirstIncrease:F2}, Energy: -{energyDecrease:F2}");
+        }
+
+        private void OnDestroy()
+        {
+            // Unregister when destroyed
+            if (Instance == this)
+            {
+                GameTimeService.UnregisterTimeProvider();
+            }
         }
     }
 } 
