@@ -11,6 +11,7 @@
         "Survivor.Environment",
         "Survivor.Generation",
         "Survivor.Shared",
+        "Survivor.Interactables",
         "Cinemachine",
         "Survivor.Characters",
         "Survivor.UI"

@@ -10,6 +10,7 @@ using Survivor.Characters.Dialogue;
 using Survivor.Characters.UI;
 using Survivor.Shared.Interfaces;
 using Survivor.UI;
+using Survivor.Interactables;
 
 public class GameManager : MonoBehaviour
 {
@@ -354,5 +355,8 @@ public class GameManager : MonoBehaviour
             dialogueManager = managerObj.AddComponent<DialogueManager>();
             DontDestroyOnLoad(managerObj);
         }
+        
+        // Note: InteractableManager should be created manually in the scene
+        // Use the InteractableManagerCreator component if needed
     }
 } 

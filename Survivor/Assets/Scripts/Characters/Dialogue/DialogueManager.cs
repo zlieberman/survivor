@@ -61,7 +61,7 @@ namespace Survivor.Characters.Dialogue
                 string key = string.IsNullOrEmpty(openAiApiKey) ? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "" : openAiApiKey;
                 if (string.IsNullOrEmpty(key))
                 {
-                    Debug.LogError("[DialogueManager] OpenAI API key is not set! Please set it in the Inspector or as OPENAI_API_KEY environment variable.");
+                    Debug.LogWarning("[DialogueManager] OpenAI API key is not set! Dialogue will use fallback responses. Please set OPENAI_API_KEY environment variable or configure in Inspector.");
                 }
                 else
                 {
@@ -93,6 +93,8 @@ namespace Survivor.Characters.Dialogue
         public bool IsInDialogue => isInDialogue;
         public bool IsDialogueValid => isInDialogue && currentInteractable != null;
 
+        private static readonly System.Random threadSafeRandom = new System.Random();
+
         private void Awake()
         {
             if (instance == null)
@@ -104,7 +106,7 @@ namespace Survivor.Characters.Dialogue
                 string apiKey = OpenAiApiKey;
                 if (string.IsNullOrEmpty(apiKey))
                 {
-                    Debug.LogError("[DialogueManager] Failed to initialize: OpenAI API key is not set!");
+                    Debug.LogWarning("[DialogueManager] OpenAI API key is not set! Dialogue will use fallback responses. Please set OPENAI_API_KEY environment variable or configure in Inspector.");
                     return;
                 }
                 
@@ -191,18 +193,37 @@ namespace Survivor.Characters.Dialogue
                      $"Body: {responseBody}");
         }
 
+        private string GetFallbackResponse()
+        {
+            try
+            {
+                string[] fallbackResponses = { "What?", "Could you say that in the other ear?" };
+                lock (threadSafeRandom)
+                {
+                    return fallbackResponses[threadSafeRandom.Next(fallbackResponses.Length)];
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[DialogueManager] Error in GetFallbackResponse: {ex.Message}. Using hardcoded fallback.");
+                return "What?"; // Hardcoded fallback if random fails
+            }
+        }
+
         public async Task<string> GenerateResponse(string playerMessage)
         {
+            Debug.Log("[DialogueManager] GenerateResponse started");
+            
             if (!IsDialogueValid)
             {
                 Debug.LogError("[DialogueManager] GenerateResponse called with invalid dialogue state");
-                return "Error: No active dialogue session.";
+                return GetFallbackResponse();
             }
 
             if (string.IsNullOrEmpty(OpenAiApiKey))
             {
-                Debug.LogError("[DialogueManager] Cannot generate response: OpenAI API key is not set!");
-                return "Error: API configuration is missing.";
+                Debug.LogWarning("[DialogueManager] Cannot generate AI response: OpenAI API key is not set! Using fallback response.");
+                return GetFallbackResponse();
             }
 
             // Create new cancellation token source for this dialogue
@@ -212,6 +233,8 @@ namespace Survivor.Characters.Dialogue
 
             try
             {
+                Debug.Log("[DialogueManager] Starting API call...");
+                
                 if (!IsDialogueValid)
                 {
                     Debug.Log("[DialogueManager] Dialogue ended while waiting for response");
@@ -221,166 +244,204 @@ namespace Survivor.Characters.Dialogue
                 string npcName = currentInteractable.GetDisplayName();
                 Debug.Log($"[DialogueManager] Generating response for {npcName}: {playerMessage}");
                 
-                // Get or create chat history for this NPC
-                if (!npcChatHistories.ContainsKey(npcName))
-                {
-                    npcChatHistories[npcName] = new List<ChatMessage>();
-                    
-                    // Get tribe information
-                    string tribeName = currentInteractable.TribeName;
-                    var tribeManager = FindObjectOfType<TribeManager>();
-                    var player = tribeManager?.GetPlayer();
-                    var tribeMembers = tribeManager?.GetTribeMembers(tribeName) ?? new List<Character>();
-                    
-                    // Build tribe context
-                    string tribeContext = $"You are {npcName}, a character in a game. You are part of the {tribeName} tribe. ";
-                    
-                    // Add player context if available
-                    if (player != null)
-                    {
-                        tribeContext += $"The player is {player.CharacterName}, also in your tribe. ";
-                        tribeContext += $"The player's stats are: ";
-                        tribeContext += $"Perception: {player.Stats.perception}, ";
-                        tribeContext += $"Deception: {player.Stats.deception}, ";
-                        tribeContext += $"Persuasion: {player.Stats.persuasion}, ";
-                        tribeContext += $"Puzzle Solving: {player.Stats.puzzleSolving}, ";
-                        tribeContext += $"Swimming: {player.Stats.swimming}, ";
-                        tribeContext += $"Speed: {player.Stats.speed}, ";
-                        tribeContext += $"Strength: {player.Stats.strength}, ";
-                        tribeContext += $"Agility: {player.Stats.agility}, ";
-                        tribeContext += $"Intelligence: {player.Stats.intelligence}, ";
-                        tribeContext += $"Stamina: {player.Stats.stamina}, ";
-                        tribeContext += $"Charisma: {player.Stats.charisma}, ";
-                        tribeContext += $"Honesty: {player.Stats.honesty}, ";
-                        tribeContext += $"Trust: {player.Stats.trust}, ";
-                        tribeContext += $"Honor: {player.Stats.honor}. ";
-                        tribeContext += $"Energy: {player.Stats.energy}, ";
-                        tribeContext += $"Hunger: {player.Stats.hunger}, ";
-                        tribeContext += $"Thirst: {player.Stats.thirst}. ";
-                    }
-                    
-                    // Add other tribe members context
-                    if (tribeMembers.Count > 0)
-                    {
-                        tribeContext += "Other members of your tribe are: ";
-                        foreach (var member in tribeMembers)
-                        {
-                            if (member != player && member != currentInteractable)
-                            {
-                                tribeContext += $"{member.CharacterName} (";
-                                tribeContext += $"Perception: {member.Stats.perception}, ";
-                                tribeContext += $"Deception: {member.Stats.deception}, ";
-                                tribeContext += $"Persuasion: {member.Stats.persuasion}, ";
-                                tribeContext += $"Puzzle Solving: {member.Stats.puzzleSolving}, ";
-                                tribeContext += $"Swimming: {member.Stats.swimming}, ";
-                                tribeContext += $"Speed: {member.Stats.speed}, ";
-                                tribeContext += $"Strength: {member.Stats.strength}, ";
-                                tribeContext += $"Agility: {member.Stats.agility}, ";
-                                tribeContext += $"Intelligence: {member.Stats.intelligence}, ";
-                                tribeContext += $"Stamina: {member.Stats.stamina}, ";
-                                tribeContext += $"Charisma: {member.Stats.charisma}, ";
-                                tribeContext += $"Honesty: {member.Stats.honesty}, ";
-                                tribeContext += $"Trust: {member.Stats.trust}, ";
-                                tribeContext += $"Honor: {member.Stats.honor}, ";
-                                tribeContext += $"Energy: {member.Stats.energy}, ";
-                                tribeContext += $"Hunger: {member.Stats.hunger}, ";
-                                tribeContext += $"Thirst: {member.Stats.thirst}), ";
-                            }
-                        }
-                        tribeContext = tribeContext.TrimEnd(',', ' ') + ". ";
-                    }
-                    
-                    // Add your own stats
-                    tribeContext += $"Your stats are: ";
-                    tribeContext += $"Perception: {currentInteractable.Stats.perception}, ";
-                    tribeContext += $"Deception: {currentInteractable.Stats.deception}, ";
-                    tribeContext += $"Persuasion: {currentInteractable.Stats.persuasion}, ";
-                    tribeContext += $"Puzzle Solving: {currentInteractable.Stats.puzzleSolving}, ";
-                    tribeContext += $"Swimming: {currentInteractable.Stats.swimming}, ";
-                    tribeContext += $"Speed: {currentInteractable.Stats.speed}, ";
-                    tribeContext += $"Strength: {currentInteractable.Stats.strength}, ";
-                    tribeContext += $"Agility: {currentInteractable.Stats.agility}, ";
-                    tribeContext += $"Intelligence: {currentInteractable.Stats.intelligence}, ";
-                    tribeContext += $"Stamina: {currentInteractable.Stats.stamina}, ";
-                    tribeContext += $"Charisma: {currentInteractable.Stats.charisma}, ";
-                    tribeContext += $"Honesty: {currentInteractable.Stats.honesty}, ";
-                    tribeContext += $"Trust: {currentInteractable.Stats.trust}, ";
-                    tribeContext += $"Honor: {currentInteractable.Stats.honor}. ";
-                    tribeContext += $"Energy: {currentInteractable.Stats.energy}, ";
-                    tribeContext += $"Hunger: {currentInteractable.Stats.hunger}, ";
-                    tribeContext += $"Thirst: {currentInteractable.Stats.thirst}. ";
-                    
-                    tribeContext += "Respond naturally and concisely to the player's messages, taking into account your tribe members' stats and your own stats.";
-                    
-                    // Add system message for new conversations
-                    npcChatHistories[npcName].Add(new ChatMessage 
-                    { 
-                        role = "system", 
-                        content = tribeContext
-                    });
-                }
-
-                // Add user message to history
-                npcChatHistories[npcName].Add(new ChatMessage 
-                { 
-                    role = "user", 
-                    content = playerMessage 
-                });
-
-                var requestBody = new ChatCompletionRequest
-                {
-                    model = openAiModel,
-                    messages = npcChatHistories[npcName].ToArray(),
-                    temperature = temperature,
-                    max_tokens = maxTokens
-                };
-
-                var jsonRequest = JsonConvert.SerializeObject(requestBody);
-                var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
-
-                // Create request and log details
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
-                {
-                    Content = content
-                };
-                LogRequestDetails(request, jsonRequest);
-
-                var response = await httpClient.SendAsync(request, ct).ConfigureAwait(false);
-                var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                LogResponseDetails(response, responseBody);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Debug.LogError($"[DialogueManager] API Error: {response.StatusCode}\nResponse: {responseBody}");
-                    return "I'm having trouble connecting right now. Please try again.";
-                }
-
                 try
                 {
-                    var responseObj = JsonConvert.DeserializeObject<ChatCompletionResponse>(responseBody);
-                    
-                    if (responseObj?.choices == null || responseObj.choices.Count == 0)
+                    // Get or create chat history for this NPC
+                    if (!npcChatHistories.ContainsKey(npcName))
                     {
-                        Debug.LogError($"[DialogueManager] Unexpected API response format: {responseBody}");
-                        return "I received an unexpected response. Please try again.";
+                        npcChatHistories[npcName] = new List<ChatMessage>();
+                        
+                        // Get tribe information
+                        string tribeName = currentInteractable.TribeName;
+                        var tribeManager = FindObjectOfType<TribeManager>();
+                        var player = tribeManager?.GetPlayer();
+                        var tribeMembers = tribeManager?.GetTribeMembers(tribeName) ?? new List<Character>();
+                        
+                        // Build tribe context
+                        string tribeContext = $"You are {npcName}, a character in a game. You are part of the {tribeName} tribe. ";
+                        
+                        // Add player context if available
+                        if (player != null)
+                        {
+                            tribeContext += $"The player is {player.CharacterName}, also in your tribe. ";
+                            tribeContext += $"The player's stats are: ";
+                            tribeContext += $"Perception: {player.Stats.perception}, ";
+                            tribeContext += $"Deception: {player.Stats.deception}, ";
+                            tribeContext += $"Persuasion: {player.Stats.persuasion}, ";
+                            tribeContext += $"Puzzle Solving: {player.Stats.puzzleSolving}, ";
+                            tribeContext += $"Swimming: {player.Stats.swimming}, ";
+                            tribeContext += $"Speed: {player.Stats.speed}, ";
+                            tribeContext += $"Strength: {player.Stats.strength}, ";
+                            tribeContext += $"Agility: {player.Stats.agility}, ";
+                            tribeContext += $"Intelligence: {player.Stats.intelligence}, ";
+                            tribeContext += $"Stamina: {player.Stats.stamina}, ";
+                            tribeContext += $"Charisma: {player.Stats.charisma}, ";
+                            tribeContext += $"Honesty: {player.Stats.honesty}, ";
+                            tribeContext += $"Trust: {player.Stats.trust}, ";
+                            tribeContext += $"Honor: {player.Stats.honor}. ";
+                            tribeContext += $"Energy: {player.Stats.energy}, ";
+                            tribeContext += $"Hunger: {player.Stats.hunger}, ";
+                            tribeContext += $"Thirst: {player.Stats.thirst}. ";
+                        }
+                        
+                        // Add other tribe members context
+                        if (tribeMembers.Count > 0)
+                        {
+                            tribeContext += "Other members of your tribe are: ";
+                            foreach (var member in tribeMembers)
+                            {
+                                if (member != player && member != currentInteractable)
+                                {
+                                    tribeContext += $"{member.CharacterName} (";
+                                    tribeContext += $"Perception: {member.Stats.perception}, ";
+                                    tribeContext += $"Deception: {member.Stats.deception}, ";
+                                    tribeContext += $"Persuasion: {member.Stats.persuasion}, ";
+                                    tribeContext += $"Puzzle Solving: {member.Stats.puzzleSolving}, ";
+                                    tribeContext += $"Swimming: {member.Stats.swimming}, ";
+                                    tribeContext += $"Speed: {member.Stats.speed}, ";
+                                    tribeContext += $"Strength: {member.Stats.strength}, ";
+                                    tribeContext += $"Agility: {member.Stats.agility}, ";
+                                    tribeContext += $"Intelligence: {member.Stats.intelligence}, ";
+                                    tribeContext += $"Stamina: {member.Stats.stamina}, ";
+                                    tribeContext += $"Charisma: {member.Stats.charisma}, ";
+                                    tribeContext += $"Honesty: {member.Stats.honesty}, ";
+                                    tribeContext += $"Trust: {member.Stats.trust}, ";
+                                    tribeContext += $"Honor: {member.Stats.honor}, ";
+                                    tribeContext += $"Energy: {member.Stats.energy}, ";
+                                    tribeContext += $"Hunger: {member.Stats.hunger}, ";
+                                    tribeContext += $"Thirst: {member.Stats.thirst}), ";
+                                }
+                            }
+                            tribeContext = tribeContext.TrimEnd(',', ' ') + ". ";
+                        }
+                        
+                        // Add your own stats
+                        tribeContext += $"Your stats are: ";
+                        tribeContext += $"Perception: {currentInteractable.Stats.perception}, ";
+                        tribeContext += $"Deception: {currentInteractable.Stats.deception}, ";
+                        tribeContext += $"Persuasion: {currentInteractable.Stats.persuasion}, ";
+                        tribeContext += $"Puzzle Solving: {currentInteractable.Stats.puzzleSolving}, ";
+                        tribeContext += $"Swimming: {currentInteractable.Stats.swimming}, ";
+                        tribeContext += $"Speed: {currentInteractable.Stats.speed}, ";
+                        tribeContext += $"Strength: {currentInteractable.Stats.strength}, ";
+                        tribeContext += $"Agility: {currentInteractable.Stats.agility}, ";
+                        tribeContext += $"Intelligence: {currentInteractable.Stats.intelligence}, ";
+                        tribeContext += $"Stamina: {currentInteractable.Stats.stamina}, ";
+                        tribeContext += $"Charisma: {currentInteractable.Stats.charisma}, ";
+                        tribeContext += $"Honesty: {currentInteractable.Stats.honesty}, ";
+                        tribeContext += $"Trust: {currentInteractable.Stats.trust}, ";
+                        tribeContext += $"Honor: {currentInteractable.Stats.honor}. ";
+                        tribeContext += $"Energy: {currentInteractable.Stats.energy}, ";
+                        tribeContext += $"Hunger: {currentInteractable.Stats.hunger}, ";
+                        tribeContext += $"Thirst: {currentInteractable.Stats.thirst}. ";
+                        
+                        tribeContext += "Respond naturally and concisely to the player's messages, taking into account your tribe members' stats and your own stats.";
+                        
+                        // Add system message for new conversations
+                        npcChatHistories[npcName].Add(new ChatMessage 
+                        { 
+                            role = "system", 
+                            content = tribeContext
+                        });
                     }
 
-                    string aiResponse = responseObj.choices[0].message.content;
-                    
-                    // Add AI response to chat history
+                    // Add user message to history
                     npcChatHistories[npcName].Add(new ChatMessage 
                     { 
-                        role = "assistant", 
-                        content = aiResponse 
+                        role = "user", 
+                        content = playerMessage 
                     });
 
-                    Debug.Log($"[DialogueManager] Successfully generated response: {aiResponse}");
-                    return aiResponse;
+                    var requestBody = new ChatCompletionRequest
+                    {
+                        model = openAiModel,
+                        messages = npcChatHistories[npcName].ToArray(),
+                        temperature = temperature,
+                        max_tokens = maxTokens
+                    };
+
+                    var jsonRequest = JsonConvert.SerializeObject(requestBody);
+                    var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+
+                    // Create request and log details
+                    var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
+                    {
+                        Content = content
+                    };
+                    LogRequestDetails(request, jsonRequest);
+
+                    // Send API request with timeout
+                    var timeoutTask = Task.Delay(5000, ct); // 5 seconds
+                    var responseTask = httpClient.SendAsync(request, ct);
+                    var completedTask = await Task.WhenAny(responseTask, timeoutTask);
+
+                    if (completedTask == timeoutTask)
+                    {
+                        Debug.LogWarning("[DialogueManager] API call timed out after 5 seconds. Using fallback response.");
+                        return GetFallbackResponse();
+                    }
+
+                    var response = await responseTask;
+                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    LogResponseDetails(response, responseBody);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        // Log API errors as warnings instead of errors to prevent game-breaking issues
+                        string errorMessage = $"[DialogueManager] API Error: {response.StatusCode}";
+                        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                        {
+                            errorMessage += " - Invalid API key. Please check your OpenAI API key configuration.";
+                        }
+                        else if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                        {
+                            errorMessage += " - Rate limit exceeded. Please wait before trying again.";
+                        }
+                        else if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+                        {
+                            errorMessage += " - OpenAI service temporarily unavailable.";
+                        }
+                        else
+                        {
+                            errorMessage += $" - Unexpected error: {responseBody}";
+                        }
+                        
+                        Debug.LogWarning(errorMessage);
+                        return GetFallbackResponse();
+                    }
+
+                    try
+                    {
+                        var responseObj = JsonConvert.DeserializeObject<ChatCompletionResponse>(responseBody);
+                        
+                        if (responseObj?.choices == null || responseObj.choices.Count == 0)
+                        {
+                            Debug.LogWarning($"[DialogueManager] Unexpected API response format. Using fallback response.");
+                            return GetFallbackResponse();
+                        }
+
+                        string aiResponse = responseObj.choices[0].message.content;
+                        
+                        // Add AI response to chat history
+                        npcChatHistories[npcName].Add(new ChatMessage 
+                        { 
+                            role = "assistant", 
+                            content = aiResponse 
+                        });
+
+                        Debug.Log($"[DialogueManager] Successfully generated response: {aiResponse}");
+                        return aiResponse;
+                    }
+                    catch (JsonException e)
+                    {
+                        Debug.LogWarning($"[DialogueManager] Failed to parse API response: {e.Message}. Using fallback response.");
+                        return GetFallbackResponse();
+                    }
                 }
-                catch (JsonException e)
+                catch (System.Exception apiEx)
                 {
-                    Debug.LogError($"[DialogueManager] Failed to parse API response: {e.Message}\nResponse: {responseBody}");
-                    return "I received an invalid response. Please try again.";
+                    Debug.LogWarning($"[DialogueManager] API call failed: {apiEx.Message}. Using fallback response.");
+                    return GetFallbackResponse();
                 }
             }
             catch (OperationCanceledException)
@@ -388,10 +449,10 @@ namespace Survivor.Characters.Dialogue
                 Debug.Log("[DialogueManager] Dialogue generation cancelled");
                 return "Dialogue ended.";
             }
-            catch (Exception e)
+            catch (System.Exception e)
             {
-                Debug.LogError($"[DialogueManager] Error generating response: {e.Message}\nStack trace: {e.StackTrace}");
-                return "I'm having trouble understanding right now. Can you try again?";
+                Debug.LogWarning($"[DialogueManager] Unexpected error in GenerateResponse: {e.Message}. Using fallback response.");
+                return GetFallbackResponse();
             }
         }
 

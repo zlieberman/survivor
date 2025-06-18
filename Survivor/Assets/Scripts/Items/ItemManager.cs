@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Survivor.Shared;
 using UnityEngine;
+using Survivor.Items;
 
 namespace Survivor.Items
 {
@@ -48,6 +49,7 @@ namespace Survivor.Items
             // Register default items
             RegisterItem(new CoconutItem());
             RegisterItem(new BananaItem());
+            RegisterItem(new FirewoodItem());
             
             // Register any items from the inspector
             foreach (var item in registeredItems)

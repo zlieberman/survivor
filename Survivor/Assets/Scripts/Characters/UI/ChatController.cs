@@ -197,20 +197,30 @@ namespace Survivor.Characters.UI
             // Add message to chat with "Me:" prefix
             AddMessage($"Me: {message}", playerMessageColor);
 
-            // Generate response from dialogue manager
-            string response = await dialogueManager.GenerateResponse(message);
-            AddNPCMessage(response);
-
-            // Re-enable input after response is received
-            isWaitingForResponse = false;
-            if (inputField != null)
+            try
             {
-                inputField.interactable = true;
-                inputField.ActivateInputField();
+                // Generate response from dialogue manager
+                string response = await dialogueManager.GenerateResponse(message);
+                AddNPCMessage(response);
             }
-            if (sendButton != null)
+            catch (System.Exception ex)
             {
-                sendButton.interactable = true;
+                Debug.LogError($"[ChatController] Exception in GenerateResponse: {ex}");
+                AddNPCMessage("What?");
+            }
+            finally
+            {
+                // Re-enable input after response is received or on error
+                isWaitingForResponse = false;
+                if (inputField != null)
+                {
+                    inputField.interactable = true;
+                    inputField.ActivateInputField();
+                }
+                if (sendButton != null)
+                {
+                    sendButton.interactable = true;
+                }
             }
         }
 

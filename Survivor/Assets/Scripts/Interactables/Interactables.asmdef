@@ -4,7 +4,8 @@
     "references": [
         "Survivor.Common",
         "Survivor.Shared",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Cinemachine"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

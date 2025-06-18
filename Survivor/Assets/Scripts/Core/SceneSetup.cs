@@ -5,6 +5,7 @@ using Survivor.Characters;
 using Survivor.Environment;
 using Survivor.Generation;
 using Survivor.Challenges;
+using Survivor.Interactables;
 using System.Collections;
 using System.Collections.Generic;
 using Cinemachine;
@@ -43,6 +44,9 @@ namespace Survivor.Core
         private void InitializeSystems()
         {
             Debug.Log("[SceneSetup] Initializing game systems...");
+            
+            // Note: InteractableManager should be created manually in the scene
+            // Use the InteractableManagerCreator component if needed
             
             // Initialize UI Manager
             if (uiManager != null)

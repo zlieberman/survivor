@@ -1,6 +1,10 @@
 using UnityEngine;
 using Survivor.Characters;
+using Survivor.Shared;
+using Survivor.Interactables;
 using System.Collections;
+using UnityEngine.Events;
+using System.Linq;
 
 namespace Survivor.Core
 {
@@ -10,6 +14,9 @@ namespace Survivor.Core
 
         [Header("Time Settings")]
         [SerializeField] private float realTimePerGameHour = 120f; // 2 minutes = 1 hour
+
+        [Header("Events")]
+        public UnityEvent onGameHourPassed; // Event triggered every game hour
 
         private void Awake()
         {
@@ -31,10 +38,88 @@ namespace Survivor.Core
 
         private IEnumerator UpdateGameTime()
         {
+            Debug.Log("[TimeManager] UpdateGameTime coroutine started");
+            int hourCount = 0;
+            
             while (true)
             {
                 yield return new WaitForSeconds(realTimePerGameHour);
+                hourCount++;
+                Debug.Log($"[TimeManager] ===== GAME HOUR {hourCount} PASSED =====");
+                Debug.Log("[TimeManager] Game hour passed - updating all systems");
+                
+                try
+                {
+                    UpdateAllSystems();
+                    Debug.Log("[TimeManager] UpdateAllSystems completed successfully");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[TimeManager] Exception in UpdateAllSystems: {e.Message}\n{e.StackTrace}");
+                }
+                
+                Debug.Log("[TimeManager] Invoking onGameHourPassed event");
+                onGameHourPassed?.Invoke();
+                Debug.Log("[TimeManager] Updating player stats");
                 UpdatePlayerStats();
+                Debug.Log($"[TimeManager] ===== HOUR {hourCount} COMPLETE =====");
+            }
+        }
+
+        private void UpdateAllSystems()
+        {
+            Debug.Log("[TimeManager] UpdateAllSystems called - updating registered interactables...");
+            
+            try
+            {
+                // Check if InteractableManager exists
+                if (InteractableManager.Instance == null)
+                {
+                    Debug.LogError("[TimeManager] InteractableManager.Instance is null - no interactables will be updated");
+                    Debug.LogError("[TimeManager] This means campfire wood will NOT decrease over time!");
+                    return;
+                }
+                Debug.Log("[TimeManager] Found InteractableManager instance successfully");
+
+                var gameHourListeners = InteractableManager.Instance.GetGameHourListeners();
+                if (gameHourListeners == null)
+                {
+                    Debug.LogError("[TimeManager] Failed to get game hour listeners list");
+                    return;
+                }
+
+                Debug.Log($"[TimeManager] Found {gameHourListeners.Count} registered game hour listeners");
+                
+                if (gameHourListeners.Count == 0)
+                {
+                    Debug.LogWarning("[TimeManager] No game hour listeners registered - this means no campfires will burn wood!");
+                    Debug.LogWarning("[TimeManager] Check if InteractableManager was created and campfires registered properly");
+                }
+                
+                int campfireCount = 0;
+                
+                foreach (var listener in gameHourListeners)
+                {
+                    var mb = listener as MonoBehaviour;
+                    Debug.Log($"[TimeManager] Updating game hour listener: {mb.name} (Type: {mb.GetType().Name})");
+                    
+                    try
+                    {
+                        listener.OnGameHourPassed();
+                        campfireCount++;
+                        Debug.Log($"[TimeManager] Successfully updated: {mb.name}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"[TimeManager] Error updating {mb.name}: {e.Message}");
+                    }
+                }
+                
+                Debug.Log($"[TimeManager] Search complete - Updated {campfireCount} interactables out of {gameHourListeners.Count} total registered listeners");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[TimeManager] Exception in UpdateAllSystems: {e.Message}\n{e.StackTrace}");
             }
         }
 
