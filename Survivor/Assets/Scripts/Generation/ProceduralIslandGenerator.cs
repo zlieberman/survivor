@@ -727,5 +727,11 @@ namespace Survivor.Generation
         {
             return campPosition;
         }
+
+        // Public method to get vegetation settings for ResourceSpawner
+        public VegetationSettings GetVegetationSettings()
+        {
+            return vegetation;
+        }
     }
 } 

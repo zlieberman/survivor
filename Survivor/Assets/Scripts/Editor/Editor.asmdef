@@ -5,6 +5,7 @@
         "Survivor.Shared",
         "Survivor.Challenges",
         "Survivor.Interactables",
+        "Survivor.Core",
         "Unity.TextMeshPro",
         "Unity.InputSystem",
         "UnityEngine",

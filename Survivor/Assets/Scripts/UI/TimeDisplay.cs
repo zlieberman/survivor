@@ -61,7 +61,6 @@ namespace Survivor.UI
             Debug.Log("[TimeDisplay] Time provider unregistered");
             isInitialized = false;
             
-            // Clear the display
             if (timeText != null)
             {
                 timeText.text = "--:--";
@@ -104,9 +103,7 @@ namespace Survivor.UI
                 if (dayText != null)
                 {
                     dayText.text = $"Day {gameDay}";
-                }
-                
-                Debug.Log($"[TimeDisplay] Updated time display: {timeString} (Day {gameDay})");
+                }                
             }
         }
         

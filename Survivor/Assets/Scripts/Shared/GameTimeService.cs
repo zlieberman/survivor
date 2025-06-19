@@ -60,18 +60,34 @@ namespace Survivor.Shared
             if (_timeProvider == null)
             {
                 Debug.LogWarning("[GameTimeService] No time provider registered");
-                return (0, 0, 1);
+                return (10, 0, 1); // Default to 10:00 AM if no provider
             }
             
             float elapsedRealTime = _timeProvider.ElapsedRealTime;
             float realTimePerGameHour = _timeProvider.RealTimePerGameHour;
             float totalGameHours = elapsedRealTime / realTimePerGameHour;
             
-            int gameHour = Mathf.FloorToInt(totalGameHours) % 24;
-            int gameDay = Mathf.FloorToInt(totalGameHours / 24f) + 1;
+            // Get starting time from the time provider
+            int startHour = _timeProvider.StartHour;
+            int startMinute = _timeProvider.StartMinute;
             
-            float fractionalHour = totalGameHours - Mathf.FloorToInt(totalGameHours);
+            // Calculate total time including starting offset
+            float totalTimeInHours = totalGameHours + startHour + (startMinute / 60f);
+            
+            int gameHour = Mathf.FloorToInt(totalTimeInHours) % 24;
+            int gameDay = Mathf.FloorToInt(totalTimeInHours / 24f) + 1;
+            
+            float fractionalHour = totalTimeInHours - Mathf.FloorToInt(totalTimeInHours);
             int gameMinute = Mathf.FloorToInt(fractionalHour * 60f);
+            
+            // Debug logging
+            Debug.Log($"[GameTimeService] Time calculation:");
+            Debug.Log($"[GameTimeService] - ElapsedRealTime: {elapsedRealTime:F1}s");
+            Debug.Log($"[GameTimeService] - RealTimePerGameHour: {realTimePerGameHour}s");
+            Debug.Log($"[GameTimeService] - TotalGameHours: {totalGameHours:F2}h");
+            Debug.Log($"[GameTimeService] - StartHour: {startHour}, StartMinute: {startMinute}");
+            Debug.Log($"[GameTimeService] - TotalTimeInHours: {totalTimeInHours:F2}h");
+            Debug.Log($"[GameTimeService] - Final time: {gameHour:D2}:{gameMinute:D2} (Day {gameDay})");
             
             return (gameHour, gameMinute, gameDay);
         }

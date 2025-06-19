@@ -2,7 +2,8 @@
     "name": "Survivor.Shared",
     "rootNamespace": "Survivor.Shared",
     "references": [
-        "GUID:6055be8ebefd69e48b49212b09b47b2f"
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:d4528f531138c4dc68a74974246d9748"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -70,10 +70,10 @@ namespace Survivor.UI
             menuPanel = Instantiate(menuPanelPrefab, transform);
             menuPanel.name = "Menu Panel";
             RectTransform menuPanelRect = menuPanel.GetComponent<RectTransform>();
-            menuPanelRect.anchorMin = new Vector2(1f, 1f);
-            menuPanelRect.anchorMax = new Vector2(1f, 1f);
-            menuPanelRect.pivot = new Vector2(1f, 1f);
-            menuPanelRect.anchoredPosition = new Vector2(-20f, -80f);
+            menuPanelRect.anchorMin = new Vector2(1f, 0f);
+            menuPanelRect.anchorMax = new Vector2(1f, 0f);
+            menuPanelRect.pivot = new Vector2(1f, 0f);
+            menuPanelRect.anchoredPosition = new Vector2(-20f, 20f);
             menuPanelRect.sizeDelta = new Vector2(300f, 400f);
 
             // Get the header text component

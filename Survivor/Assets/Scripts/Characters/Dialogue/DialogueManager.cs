@@ -155,6 +155,14 @@ namespace Survivor.Characters.Dialogue
             {
                 Debug.Log("[DialogueManager] Found ChatController in scene");
             }
+
+            // Ensure InputBlocker exists
+            if (InputBlocker.Instance == null)
+            {
+                GameObject inputBlockerObj = new GameObject("InputBlocker");
+                inputBlockerObj.AddComponent<InputBlocker>();
+                Debug.Log("[DialogueManager] Created InputBlocker for chat input management");
+            }
         }
 
         private void Update()
@@ -481,6 +489,12 @@ namespace Survivor.Characters.Dialogue
             // Show cursor and unlock it
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+
+            // Ensure InputBlocker has latest components
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.RefreshInputComponents();
+            }
 
             // Notify the NPC that dialogue has started
             if (currentInteractable != null)

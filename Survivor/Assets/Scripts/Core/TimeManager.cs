@@ -14,9 +14,15 @@ namespace Survivor.Core
 
         [Header("Time Settings")]
         [SerializeField] private float realTimePerGameHour = 120f; // 2 minutes = 1 hour
+        [SerializeField] private int startHour = 10; // Game starts at 10:00 AM
+        [SerializeField] private int startMinute = 0; // Game starts at 10:00 AM
 
         // Public property to access realTimePerGameHour
         public float RealTimePerGameHour => realTimePerGameHour;
+        
+        // Public properties to access starting time
+        public int StartHour => startHour;
+        public int StartMinute => startMinute;
         
         // ITimeProvider implementation
         public float ElapsedRealTime { get; private set; } = 0f;
@@ -48,6 +54,19 @@ namespace Survivor.Core
         {
             // Track elapsed real time
             ElapsedRealTime += Time.deltaTime;
+            
+            // Debug: Log time tracking every 10 seconds
+            if (Mathf.FloorToInt(ElapsedRealTime) % 10 == 0 && Time.frameCount % 60 == 0) // Every 10 seconds, but only once per second
+            {
+                var (hour, minute, day) = GameTimeService.GetCurrentGameTime();
+                Debug.Log($"[TimeManager] Time tracking - ElapsedRealTime: {ElapsedRealTime:F1}s, Game time: {hour:D2}:{minute:D2} (Day {day})");
+                Debug.Log($"[TimeManager] Starting time: {startHour:D2}:{startMinute:D2}, RealTimePerGameHour: {realTimePerGameHour}s");
+                
+                // Show the calculation breakdown
+                float totalGameHours = ElapsedRealTime / realTimePerGameHour;
+                float totalTimeInHours = totalGameHours + startHour + (startMinute / 60f);
+                Debug.Log($"[TimeManager] Calculation: {ElapsedRealTime:F1}s / {realTimePerGameHour}s = {totalGameHours:F2}h + {startHour}h + {startMinute/60f:F2}h = {totalTimeInHours:F2}h");
+            }
         }
 
         private IEnumerator UpdateGameTime()

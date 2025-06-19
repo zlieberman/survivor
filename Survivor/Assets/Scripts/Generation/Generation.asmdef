@@ -2,11 +2,11 @@
     "name": "Survivor.Generation",
     "rootNamespace": "Survivor.Generation",
     "references": [
-        "Survivor.Common",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "Survivor.Items",
         "Survivor.Shared",
         "Survivor.Interactables",
-        "Unity.AI.Navigation",
-        "Survivor.Items"
+        "Unity.AI.Navigation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

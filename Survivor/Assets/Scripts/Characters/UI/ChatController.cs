@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Survivor.Shared.Interfaces;
 using Survivor.Characters.Dialogue;
 using System.Text.RegularExpressions;
+using Survivor.Shared;
 
 namespace Survivor.Characters.UI
 {
@@ -15,6 +16,7 @@ namespace Survivor.Characters.UI
         [SerializeField] private Transform messageContainer;
         [SerializeField] private TMP_InputField inputField;
         [SerializeField] private Button sendButton;
+        [SerializeField] private Button closeButton;
         [SerializeField] private GameObject messagePrefab;
         [SerializeField] private TextMeshProUGUI npcNameText;
 
@@ -42,11 +44,18 @@ namespace Survivor.Characters.UI
             {
                 inputField.onValueChanged.AddListener(OnInputValueChanged);
                 inputField.onValidateInput += ValidateInput;
+                inputField.onSelect.AddListener(OnInputFieldSelected);
+                inputField.onDeselect.AddListener(OnInputFieldDeselected);
             }
 
             if (sendButton != null)
             {
                 sendButton.onClick.AddListener(SendMessage);
+            }
+
+            if (closeButton != null)
+            {
+                closeButton.onClick.AddListener(CloseChatWindow);
             }
 
             dialogueManager = FindObjectOfType<DialogueManager>();
@@ -82,6 +91,56 @@ namespace Survivor.Characters.UI
                 }
                 sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
                 sizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            }
+        }
+
+        private void Update()
+        {
+            // Handle Escape key to close chat window
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseChatWindow();
+            }
+        }
+
+        private void CloseChatWindow()
+        {
+            Debug.Log("[ChatController] Escape key pressed - closing chat window");
+            
+            // Deselect input field to stop typing
+            if (inputField != null)
+            {
+                inputField.DeactivateInputField();
+            }
+            
+            // Unblock input first
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.UnblockInput();
+            }
+            
+            // End dialogue through the dialogue manager
+            if (dialogueManager != null)
+            {
+                dialogueManager.EndDialogue();
+            }
+        }
+
+        private void OnInputFieldSelected(string value)
+        {
+            // Block keyboard input when typing
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.BlockInput();
+            }
+        }
+
+        private void OnInputFieldDeselected(string value)
+        {
+            // Unblock keyboard input when done typing
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.UnblockInput();
             }
         }
 
@@ -294,6 +353,8 @@ namespace Survivor.Characters.UI
             {
                 inputField.onValueChanged.RemoveListener(OnInputValueChanged);
                 inputField.onValidateInput -= ValidateInput;
+                inputField.onSelect.RemoveListener(OnInputFieldSelected);
+                inputField.onDeselect.RemoveListener(OnInputFieldDeselected);
             }
 
             if (sendButton != null)
@@ -301,6 +362,17 @@ namespace Survivor.Characters.UI
                 sendButton.onClick.RemoveListener(SendMessage);
             }
 
+            if (closeButton != null)
+            {
+                closeButton.onClick.RemoveListener(CloseChatWindow);
+            }
+
+            // Make sure to unblock input when destroyed
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.UnblockInput();
+            }
+            
             ClearChat();
         }
     }

@@ -14,5 +14,15 @@ namespace Survivor.Shared
         /// Gets the current elapsed real time since the game started
         /// </summary>
         float ElapsedRealTime { get; }
+        
+        /// <summary>
+        /// Gets the starting hour of the game (0-23)
+        /// </summary>
+        int StartHour { get; }
+        
+        /// <summary>
+        /// Gets the starting minute of the game (0-59)
+        /// </summary>
+        int StartMinute { get; }
     }
 } 
