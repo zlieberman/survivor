@@ -4310,7 +4310,7 @@ MonoBehaviour:
     riverSegments: 10
     riverCurve: 0.3
   terrainSize: 250
-  maxHeight: 50
+  maxHeight: 10
   noiseScale: 50
   octaves: 4
   persistence: 0.5

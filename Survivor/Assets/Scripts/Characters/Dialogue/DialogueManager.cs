@@ -58,7 +58,7 @@ namespace Survivor.Characters.Dialogue
         {
             get
             {
-                string key = string.IsNullOrEmpty(openAiApiKey) ? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "" : openAiApiKey;
+                string key = string.IsNullOrEmpty(openAiApiKey) ? System.Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "" : openAiApiKey;
                 if (string.IsNullOrEmpty(key))
                 {
                     Debug.LogWarning("[DialogueManager] OpenAI API key is not set! Dialogue will use fallback responses. Please set OPENAI_API_KEY environment variable or configure in Inspector.");

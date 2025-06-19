@@ -43,7 +43,7 @@ namespace Survivor.Environment
 
         private Terrain terrain;
         private TerrainData terrainData;
-        private WaterSystem waterSystem;
+        private WaterPhysicsSystem waterSystem;
 
         private void Start()
         {
@@ -56,6 +56,9 @@ namespace Survivor.Environment
             CreateWater();
             PlaceVegetation();
             SetupCamp();
+            
+            // Ensure player has swimming capabilities
+            SetupPlayerSwimming();
         }
 
         private void CreateTerrain()
@@ -133,19 +136,83 @@ namespace Survivor.Environment
 
         private void CreateWater()
         {
-            GameObject waterObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            waterObject.name = "Water";
-            waterObject.transform.position = new Vector3(0, waterLevel, 0);
-            waterObject.transform.localScale = new Vector3(terrainSize / 10f, 1, terrainSize / 10f);
+            // Calculate the lowest terrain point to determine water depth
+            float lowestTerrainPoint = CalculateLowestTerrainPoint();
+            float waterDepth = waterLevel - lowestTerrainPoint;
+            
+            Debug.Log($"[IslandGenerator] Water Level: {waterLevel}, Lowest Terrain: {lowestTerrainPoint}, Water Depth: {waterDepth}");
+
+            // Create water surface (visual)
+            GameObject waterSurface = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            waterSurface.name = "WaterSurface";
+            waterSurface.transform.position = new Vector3(0, waterLevel, 0);
+            waterSurface.transform.localScale = new Vector3(terrainSize / 10f, 1, terrainSize / 10f);
 
             if (waterMaterial != null)
             {
-                waterObject.GetComponent<MeshRenderer>().material = waterMaterial;
+                waterSurface.GetComponent<MeshRenderer>().material = waterMaterial;
             }
 
+            // Remove the collider from the surface (we'll use a separate volume collider)
+            DestroyImmediate(waterSurface.GetComponent<Collider>());
+
+            // Create water volume (physics) - extends from water surface down to lowest terrain point
+            GameObject waterVolume = new GameObject("WaterVolume");
+            float volumeCenterY = waterLevel - (waterDepth / 2f); // Center the volume between water surface and lowest point
+            waterVolume.transform.position = new Vector3(0, volumeCenterY, 0);
+            
+            // Add a large box collider for water physics
+            BoxCollider waterCollider = waterVolume.AddComponent<BoxCollider>();
+            waterCollider.isTrigger = true;
+            waterCollider.size = new Vector3(terrainSize, waterDepth, terrainSize); // Full depth coverage
+            waterCollider.center = new Vector3(0, waterDepth / 2f, 0); // Center at water surface
+
             // Add water system
-            waterSystem = waterObject.AddComponent<WaterSystem>();
+            waterSystem = waterVolume.AddComponent<WaterPhysicsSystem>();
             waterSystem.waterHeight = waterLevel;
+            waterSystem.buoyancyForce = 3f;
+            waterSystem.dragForce = 1f;
+            waterSystem.swimThreshold = 0.67f;
+            waterSystem.swimSpeed = 4f;
+            waterSystem.swimGravity = -2f;
+            waterSystem.normalGravity = -15f;
+            
+            // Enable underwater effects
+            waterSystem.enableUnderwaterEffects = true;
+            waterSystem.useAdvancedEffects = false; // Use simple effects for Built-in RP
+            waterSystem.underwaterTint = new Color(0.2f, 0.4f, 0.8f, 0.3f);
+            waterSystem.underwaterBlur = 0.5f;
+            waterSystem.underwaterDistortion = 0.1f;
+            waterSystem.effectTransitionSpeed = 2f;
+            waterSystem.effectIntensity = 1f;
+
+            Debug.Log($"[IslandGenerator] Created water volume at center Y: {volumeCenterY} with size {waterCollider.size}");
+        }
+
+        private float CalculateLowestTerrainPoint()
+        {
+            if (terrain == null || terrainData == null) return 0f;
+
+            float lowestPoint = float.MaxValue;
+            int resolution = terrainData.heightmapResolution;
+            
+            // Sample the heightmap to find the lowest point
+            for (int x = 0; x < resolution; x += 10) // Sample every 10th point for performance
+            {
+                for (int y = 0; y < resolution; y += 10)
+                {
+                    float height = terrainData.GetHeight(x, y);
+                    if (height < lowestPoint)
+                    {
+                        lowestPoint = height;
+                    }
+                }
+            }
+
+            // Add some buffer below the lowest point to ensure full coverage
+            lowestPoint -= 5f;
+            
+            return lowestPoint;
         }
 
         private void PlaceVegetation()
@@ -261,6 +328,112 @@ namespace Survivor.Environment
             }
 
             return variance / samples;
+        }
+
+        private void SetupPlayerSwimming()
+        {
+            // Find the player
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null)
+            {
+                player = GameObject.Find("Player");
+            }
+            
+            if (player != null)
+            {
+                // Try to add PlayerSwimmingSetup using reflection to avoid circular dependency
+                System.Type swimmingSetupType = System.Type.GetType("Survivor.Characters.PlayerSwimmingSetup, Survivor.Characters");
+                if (swimmingSetupType != null)
+                {
+                    Component existingSetup = player.GetComponent(swimmingSetupType);
+                    if (existingSetup == null)
+                    {
+                        existingSetup = player.AddComponent(swimmingSetupType);
+                        Debug.Log("[IslandGenerator] Added PlayerSwimmingSetup to player via reflection");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[IslandGenerator] Could not find PlayerSwimmingSetup type. Make sure the Characters assembly is available.");
+                }
+                
+                // Try to add CharacterSwimming using reflection
+                System.Type swimmingType = System.Type.GetType("Survivor.Characters.CharacterSwimming, Survivor.Characters");
+                if (swimmingType != null)
+                {
+                    Component existingSwimming = player.GetComponent(swimmingType);
+                    if (existingSwimming == null)
+                    {
+                        existingSwimming = player.AddComponent(swimmingType);
+                        Debug.Log("[IslandGenerator] Added CharacterSwimming to player via reflection");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[IslandGenerator] Could not find CharacterSwimming type. Make sure the Characters assembly is available.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[IslandGenerator] No player found! Make sure your player is tagged as 'Player' or named 'Player'.");
+            }
+        }
+
+        [ContextMenu("Test Water System")]
+        public void TestWaterSystem()
+        {
+            if (waterSystem == null)
+            {
+                Debug.LogWarning("[IslandGenerator] No water system found! Generate the island first.");
+                return;
+            }
+
+            Debug.Log($"[IslandGenerator] Water System Test:");
+            Debug.Log($"- Water Height: {waterSystem.waterHeight}");
+            Debug.Log($"- Swim Threshold: {waterSystem.swimThreshold}");
+            Debug.Log($"- Underwater Effects: {(waterSystem.enableUnderwaterEffects ? "Enabled" : "Disabled")}");
+            
+            // Test player position
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null)
+            {
+                player = GameObject.Find("Player");
+            }
+            
+            if (player != null)
+            {
+                float playerY = player.transform.position.y;
+                bool isUnderwater = playerY < waterSystem.waterHeight;
+                Debug.Log($"- Player Y: {playerY}, Water Level: {waterSystem.waterHeight}");
+                Debug.Log($"- Player Underwater: {(isUnderwater ? "Yes" : "No")}");
+                
+                // Check swimming components using reflection
+                System.Type swimmingType = System.Type.GetType("Survivor.Characters.CharacterSwimming, Survivor.Characters");
+                if (swimmingType != null)
+                {
+                    Component swimming = player.GetComponent(swimmingType);
+                    Debug.Log($"- CharacterSwimming Component: {(swimming != null ? "Present" : "Missing")}");
+                    
+                    if (swimming != null)
+                    {
+                        // Try to get IsSwimming property via reflection
+                        var isSwimmingProperty = swimmingType.GetProperty("IsSwimming");
+                        if (isSwimmingProperty != null)
+                        {
+                            bool isSwimming = (bool)isSwimmingProperty.GetValue(swimming);
+                            Debug.Log($"- Swimming Active: {(isSwimming ? "Yes" : "No")}");
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("- CharacterSwimming type not found!");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("- No player found!");
+            }
         }
 
 #if UNITY_EDITOR
