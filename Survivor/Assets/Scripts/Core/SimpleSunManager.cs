@@ -13,6 +13,7 @@ namespace Survivor.Core
         [Header("Sun Cycle")]
         [SerializeField] private int sunriseHour = 5; // 5 AM
         [SerializeField] private int sunsetHour = 20; // 8 PM
+        [SerializeField] private float transitionDuration = 2f; // 2 hours for dusk/dawn transition
         
         [Header("Sun Settings")]
         [SerializeField] private Material skyboxMaterial;
@@ -358,60 +359,80 @@ namespace Survivor.Core
             // Calculate sun angle from horizon (0 = horizon, 90 = overhead)
             float sunAngleFromHorizon = Mathf.Asin(sunHeight / sunDistance) * Mathf.Rad2Deg;
             
+            // Calculate transition phases based on time
+            float dawnStart = sunriseHour - transitionDuration;
+            float dawnEnd = sunriseHour;
+            float duskStart = sunsetHour;
+            float duskEnd = sunsetHour + transitionDuration;
+            
             Color lightColor;
             float lightIntensity;
             Color ambientColor;
             Color skyColor;
             Color horizonColor;
             
-            if (sunAngleFromHorizon > 45f)
+            // Determine lighting phase
+            if (timeInHours >= dawnStart && timeInHours < dawnEnd)
             {
-                // Sun high in sky - full daylight
-                lightColor = dayColor;
-                lightIntensity = dayIntensity;
-                ambientColor = dayColor * 0.3f;
-                skyColor = daySkyColor;
-                horizonColor = dayHorizonColor;
+                // Dawn transition - gradually brightening
+                float dawnProgress = (timeInHours - dawnStart) / transitionDuration;
+                lightColor = Color.Lerp(deepNightColor, sunriseColor, dawnProgress);
+                lightIntensity = Mathf.Lerp(deepNightIntensity, sunriseIntensity, dawnProgress);
+                ambientColor = Color.Lerp(deepNightColor * 0.02f, sunriseColor * 0.2f, dawnProgress);
+                skyColor = Color.Lerp(deepNightSkyColor, sunriseSkyColor, dawnProgress);
+                horizonColor = Color.Lerp(deepNightHorizonColor, sunriseHorizonColor, dawnProgress);
             }
-            else if (sunAngleFromHorizon > 15f)
+            else if (timeInHours >= dawnEnd && timeInHours < duskStart)
             {
-                // Sun moderately high - transitioning to sunset/sunrise
-                float transitionProgress = (sunAngleFromHorizon - 15f) / (45f - 15f);
-                lightColor = Color.Lerp(sunsetColor, dayColor, transitionProgress);
-                lightIntensity = Mathf.Lerp(sunsetIntensity, dayIntensity, transitionProgress);
-                ambientColor = Color.Lerp(sunsetColor * 0.15f, dayColor * 0.3f, transitionProgress);
-                skyColor = Color.Lerp(sunsetSkyColor, daySkyColor, transitionProgress);
-                horizonColor = Color.Lerp(sunsetHorizonColor, dayHorizonColor, transitionProgress);
+                // Full day
+                if (sunAngleFromHorizon > 45f)
+                {
+                    // Sun high in sky - full daylight
+                    lightColor = dayColor;
+                    lightIntensity = dayIntensity;
+                    ambientColor = dayColor * 0.3f;
+                    skyColor = daySkyColor;
+                    horizonColor = dayHorizonColor;
+                }
+                else if (sunAngleFromHorizon > 15f)
+                {
+                    // Sun moderately high - transitioning to sunset/sunrise
+                    float transitionProgress = (sunAngleFromHorizon - 15f) / (45f - 15f);
+                    lightColor = Color.Lerp(sunsetColor, dayColor, transitionProgress);
+                    lightIntensity = Mathf.Lerp(sunsetIntensity, dayIntensity, transitionProgress);
+                    ambientColor = Color.Lerp(sunsetColor * 0.15f, dayColor * 0.3f, transitionProgress);
+                    skyColor = Color.Lerp(sunsetSkyColor, daySkyColor, transitionProgress);
+                    horizonColor = Color.Lerp(sunsetHorizonColor, dayHorizonColor, transitionProgress);
+                }
+                else
+                {
+                    // Sun near horizon - warm sunset/sunrise colors
+                    float horizonProgress = sunAngleFromHorizon / 15f;
+                    lightColor = Color.Lerp(sunriseColor, sunsetColor, horizonProgress);
+                    lightIntensity = Mathf.Lerp(sunriseIntensity, sunsetIntensity, horizonProgress);
+                    ambientColor = Color.Lerp(sunriseColor * 0.2f, sunsetColor * 0.1f, horizonProgress);
+                    skyColor = Color.Lerp(sunriseSkyColor, sunsetSkyColor, horizonProgress);
+                    horizonColor = Color.Lerp(sunriseHorizonColor, sunsetHorizonColor, horizonProgress);
+                }
             }
-            else if (sunAngleFromHorizon > 0f)
+            else if (timeInHours >= duskStart && timeInHours < duskEnd)
             {
-                // Sun near horizon - warm sunset/sunrise colors
-                float horizonProgress = sunAngleFromHorizon / 15f;
-                lightColor = Color.Lerp(sunriseColor, sunsetColor, horizonProgress);
-                lightIntensity = Mathf.Lerp(sunriseIntensity, sunsetIntensity, horizonProgress);
-                ambientColor = Color.Lerp(sunriseColor * 0.2f, sunsetColor * 0.1f, horizonProgress);
-                skyColor = Color.Lerp(sunriseSkyColor, sunsetSkyColor, horizonProgress);
-                horizonColor = Color.Lerp(sunriseHorizonColor, sunsetHorizonColor, horizonProgress);
-            }
-            else if (sunAngleFromHorizon > -10f)
-            {
-                // Sun just below horizon - early night
-                float nightProgress = (sunAngleFromHorizon + 10f) / 10f;
-                lightColor = Color.Lerp(nightColor, sunriseColor, nightProgress);
-                lightIntensity = Mathf.Lerp(nightIntensity, sunriseIntensity, nightProgress);
-                ambientColor = Color.Lerp(nightColor * 0.05f, sunriseColor * 0.2f, nightProgress);
-                skyColor = Color.Lerp(nightSkyColor, sunriseSkyColor, nightProgress);
-                horizonColor = Color.Lerp(nightHorizonColor, sunriseHorizonColor, nightProgress);
+                // Dusk transition - gradually darkening
+                float duskProgress = (timeInHours - duskStart) / transitionDuration;
+                lightColor = Color.Lerp(sunsetColor, deepNightColor, duskProgress);
+                lightIntensity = Mathf.Lerp(sunsetIntensity, deepNightIntensity, duskProgress);
+                ambientColor = Color.Lerp(sunsetColor * 0.1f, deepNightColor * 0.02f, duskProgress);
+                skyColor = Color.Lerp(sunsetSkyColor, deepNightSkyColor, duskProgress);
+                horizonColor = Color.Lerp(sunsetHorizonColor, deepNightHorizonColor, duskProgress);
             }
             else
             {
-                // Sun well below horizon - deep night
-                float deepNightProgress = Mathf.Clamp01((sunAngleFromHorizon + 30f) / -20f);
-                lightColor = Color.Lerp(deepNightColor, nightColor, deepNightProgress);
-                lightIntensity = Mathf.Lerp(deepNightIntensity, nightIntensity, deepNightProgress);
-                ambientColor = Color.Lerp(deepNightColor * 0.02f, nightColor * 0.05f, deepNightProgress);
-                skyColor = Color.Lerp(deepNightSkyColor, nightSkyColor, deepNightProgress);
-                horizonColor = Color.Lerp(deepNightHorizonColor, nightHorizonColor, deepNightProgress);
+                // Deep night
+                lightColor = deepNightColor;
+                lightIntensity = deepNightIntensity;
+                ambientColor = deepNightColor * 0.02f;
+                skyColor = deepNightSkyColor;
+                horizonColor = deepNightHorizonColor;
             }
             
             // Apply the lighting
@@ -420,41 +441,53 @@ namespace Survivor.Core
             RenderSettings.ambientLight = ambientColor;
             
             // Update global lighting settings for night
-            UpdateGlobalLightingSettings(sunAngleFromHorizon);
+            UpdateGlobalLightingSettings(sunAngleFromHorizon, timeInHours);
             
             // Update skybox colors
             UpdateSkyboxColors(skyColor, horizonColor);
         }
         
-        private void UpdateGlobalLightingSettings(float sunAngleFromHorizon)
+        private void UpdateGlobalLightingSettings(float sunAngleFromHorizon, float timeInHours)
         {
-            // Make night much darker by adjusting global lighting settings
-            if (sunAngleFromHorizon < 0f)
+            // Calculate transition phases
+            float dawnStart = sunriseHour - transitionDuration;
+            float dawnEnd = sunriseHour;
+            float duskStart = sunsetHour;
+            float duskEnd = sunsetHour + transitionDuration;
+            
+            // Determine darkness level based on time
+            float darknessLevel = 0f; // 0 = full day, 1 = deep night
+            
+            if (timeInHours >= dawnStart && timeInHours < dawnEnd)
             {
-                // Night time - reduce global lighting
-                float nightDarkness = Mathf.Clamp01(-sunAngleFromHorizon / 30f); // 0 = just below horizon, 1 = deep night
-                
-                // Reduce ambient intensity
-                RenderSettings.ambientIntensity = Mathf.Lerp(0.3f, 0.1f, nightDarkness);
-                
-                // Reduce reflection intensity
-                RenderSettings.reflectionIntensity = Mathf.Lerp(0.5f, 0.1f, nightDarkness);
-                
-                // Reduce fog density if fog is enabled
-                if (RenderSettings.fog)
-                {
-                    RenderSettings.fogDensity = Mathf.Lerp(0.01f, 0.05f, nightDarkness);
-                }
+                // Dawn transition - gradually brightening
+                float dawnProgress = (timeInHours - dawnStart) / transitionDuration;
+                darknessLevel = 1f - dawnProgress;
+            }
+            else if (timeInHours >= dawnEnd && timeInHours < duskStart)
+            {
+                // Full day
+                darknessLevel = 0f;
+            }
+            else if (timeInHours >= duskStart && timeInHours < duskEnd)
+            {
+                // Dusk transition - gradually darkening
+                float duskProgress = (timeInHours - duskStart) / transitionDuration;
+                darknessLevel = duskProgress;
             }
             else
             {
-                // Day time - normal lighting
-                RenderSettings.ambientIntensity = 1f;
-                RenderSettings.reflectionIntensity = 1f;
-                if (RenderSettings.fog)
-                {
-                    RenderSettings.fogDensity = 0.01f;
-                }
+                // Deep night
+                darknessLevel = 1f;
+            }
+            
+            // Apply global lighting settings based on darkness level
+            RenderSettings.ambientIntensity = Mathf.Lerp(1f, 0.1f, darknessLevel);
+            RenderSettings.reflectionIntensity = Mathf.Lerp(1f, 0.1f, darknessLevel);
+            
+            if (RenderSettings.fog)
+            {
+                RenderSettings.fogDensity = Mathf.Lerp(0.01f, 0.05f, darknessLevel);
             }
         }
         
@@ -737,6 +770,50 @@ namespace Survivor.Core
         {
             elapsedTime += realTimePerGameHour * 6f;
             Debug.Log($"[SimpleSunManager] Advanced 6 hours. New elapsed time: {elapsedTime:F1}s");
+        }
+        
+        [ContextMenu("Test Transition Phases")]
+        public void TestTransitionPhases()
+        {
+            Debug.Log("=== Transition Phases Test ===");
+            Debug.Log($"Sunrise: {sunriseHour}, Sunset: {sunsetHour}, Transition Duration: {transitionDuration}h");
+            
+            float dawnStart = sunriseHour - transitionDuration;
+            float dawnEnd = sunriseHour;
+            float duskStart = sunsetHour;
+            float duskEnd = sunsetHour + transitionDuration;
+            
+            Debug.Log($"Dawn: {dawnStart:F1} - {dawnEnd:F1} (gradually brightening)");
+            Debug.Log($"Day: {dawnEnd:F1} - {duskStart:F1} (full daylight)");
+            Debug.Log($"Dusk: {duskStart:F1} - {duskEnd:F1} (gradually darkening)");
+            Debug.Log($"Night: {duskEnd:F1} - {dawnStart + 24f:F1} (deep night)");
+            
+            // Test current time
+            float totalGameHours = elapsedTime / realTimePerGameHour;
+            float currentTimeInHours = (totalGameHours + startHour + (startMinute / 60f)) % 24f;
+            
+            Debug.Log($"Current time: {currentTimeInHours:F1}h");
+            
+            if (currentTimeInHours >= dawnStart && currentTimeInHours < dawnEnd)
+            {
+                float dawnProgress = (currentTimeInHours - dawnStart) / transitionDuration;
+                Debug.Log($"Currently in DAWN phase - Progress: {dawnProgress:F2}");
+            }
+            else if (currentTimeInHours >= dawnEnd && currentTimeInHours < duskStart)
+            {
+                Debug.Log("Currently in DAY phase");
+            }
+            else if (currentTimeInHours >= duskStart && currentTimeInHours < duskEnd)
+            {
+                float duskProgress = (currentTimeInHours - duskStart) / transitionDuration;
+                Debug.Log($"Currently in DUSK phase - Progress: {duskProgress:F2}");
+            }
+            else
+            {
+                Debug.Log("Currently in NIGHT phase");
+            }
+            
+            Debug.Log("=== End Transition Test ===");
         }
     }
 } 

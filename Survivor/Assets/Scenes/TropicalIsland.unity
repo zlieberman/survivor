@@ -1771,6 +1771,7 @@ MonoBehaviour:
   startMinute: 0
   sunriseHour: 5
   sunsetHour: 20
+  transitionDuration: 2
   skyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   directionalLight: {fileID: 705507994}
   nightColor: {r: 0.05, g: 0.05, b: 0.15, a: 1}
