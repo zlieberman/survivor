@@ -80,15 +80,6 @@ namespace Survivor.Shared
             float fractionalHour = totalTimeInHours - Mathf.FloorToInt(totalTimeInHours);
             int gameMinute = Mathf.FloorToInt(fractionalHour * 60f);
             
-            // Debug logging
-            Debug.Log($"[GameTimeService] Time calculation:");
-            Debug.Log($"[GameTimeService] - ElapsedRealTime: {elapsedRealTime:F1}s");
-            Debug.Log($"[GameTimeService] - RealTimePerGameHour: {realTimePerGameHour}s");
-            Debug.Log($"[GameTimeService] - TotalGameHours: {totalGameHours:F2}h");
-            Debug.Log($"[GameTimeService] - StartHour: {startHour}, StartMinute: {startMinute}");
-            Debug.Log($"[GameTimeService] - TotalTimeInHours: {totalTimeInHours:F2}h");
-            Debug.Log($"[GameTimeService] - Final time: {gameHour:D2}:{gameMinute:D2} (Day {gameDay})");
-            
             return (gameHour, gameMinute, gameDay);
         }
         

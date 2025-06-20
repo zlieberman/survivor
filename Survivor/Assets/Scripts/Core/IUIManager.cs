@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Survivor.Challenges;
 using Survivor.Characters;
 
 namespace Survivor.Core
@@ -12,11 +11,8 @@ namespace Survivor.Core
         void ShowGameHUD();
         void ShowDialogue();
         void HideDialogue();
-        void ShowChallenge();
-        void HideChallenge();
         void ShowPauseMenu();
         void HidePauseMenu();
-        void ShowChallengeUI(Challenge challenge);
         void HideChallengeUI();
         void UpdateChallengeProgress(float progress);
         void ShowVotingUI();

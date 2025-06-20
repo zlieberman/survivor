@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Survivor.Characters;
 using Survivor.Shared;
-using Survivor.Characters.Dialogue;
 using Survivor.Characters.UI;
 using TMPro;
 using UnityEngine.UI;
@@ -22,18 +21,7 @@ namespace Survivor.Characters
         [Header("Interaction")]
         public float interactionRange = 3f;
         public LayerMask npcLayer;
-
-        [Header("Dialogue UI")]
-        public GameObject dialoguePanel;
-        public TMP_InputField playerInputField;
-        public TextMeshProUGUI npcResponseText;
-        public Button sendButton;
-        public Button closeDialogueButton;
-
         private IDialogueInteractable selectedNPC;
-        private bool inDialogue;
-        private DialogueManager dialogueManager;
-        private PlayerManager playerManager;
         private UnityEngine.CharacterController controller;
         private Inventory inventory;
         private Vector3 velocity;
@@ -55,37 +43,12 @@ namespace Survivor.Characters
             // Get components
             controller = GetComponent<UnityEngine.CharacterController>();
             mainCamera = Camera.main;
-
-            // Get managers
-            playerManager = FindObjectOfType<PlayerManager>();
-            if (playerManager != null)
-            {
-                playerManager.RegisterPlayer(this);
-            }
-
-            // Setup dialogue UI
-            if (sendButton != null)
-                sendButton.onClick.AddListener(SendDialogue);
-            if (closeDialogueButton != null)
-                closeDialogueButton.onClick.AddListener(CloseDialogue);
-            if (dialoguePanel != null)
-                dialoguePanel.SetActive(false);
-
-            // Get dialogue manager
-            dialogueManager = FindObjectOfType<DialogueManager>();
-            if (dialogueManager != null)
-            {
-                dialogueManager.OnDialogueLine += OnDialogueReceived;
-            }
         }
 
         protected virtual void Update()
         {
-            if (!inDialogue)
-            {
-                HandleMovement();
-                HandleInteraction();
-            }
+            HandleMovement();
+            HandleInteraction();
         }
 
         protected virtual void HandleMovement()
@@ -172,78 +135,10 @@ namespace Survivor.Characters
                     CharacterUIManager.Instance.HideNPCInfo();
                 }
             }
-
-            // Handle interaction input
-            if (Input.GetKeyDown(KeyCode.E) && selectedNPC != null)
-            {
-                StartDialogue(selectedNPC);
-            }
-        }
-
-        private void StartDialogue(IDialogueInteractable interactable)
-        {
-            if (dialogueManager == null) return;
-
-            inDialogue = true;
-            interactable.OnDialogueStart();
-            
-            // Optional: Lock cursor, disable movement, etc.
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-
-        private async void SendDialogue()
-        {
-            if (!inDialogue || selectedNPC == null || string.IsNullOrEmpty(playerInputField.text))
-                return;
-
-            string playerMessage = playerInputField.text;
-            playerInputField.text = "";
-
-            // Send message to NPC through dialogue system
-            if (dialogueManager != null)
-            {
-                string response = await dialogueManager.GenerateResponse(playerMessage);
-                OnDialogueReceived(response);
-            }
-        }
-
-        private void OnDialogueReceived(string response)
-        {
-            // Handle dialogue response
-            Debug.Log($"Received dialogue: {response}");
-        }
-
-        private void CloseDialogue()
-        {
-            if (!inDialogue) return;
-
-            inDialogue = false;
-            if (selectedNPC != null)
-            {
-                selectedNPC.OnDialogueEnd();
-            }
-            selectedNPC = null;
-            CharacterUIManager.Instance.HideNPCInfo();
-
-            // Optional: Reset cursor state
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
         }
 
         private void OnDestroy()
         {
-            // Unsubscribe from events
-            if (dialogueManager != null)
-            {
-                dialogueManager.OnDialogueLine -= OnDialogueReceived;
-            }
-
-            // Unregister player
-            if (playerManager != null)
-            {
-                playerManager.UnregisterPlayer(this);
-            }
         }
 
         protected virtual void OnDrawGizmosSelected()

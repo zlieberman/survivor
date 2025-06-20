@@ -7,7 +7,6 @@ using Newtonsoft.Json;
 using System.Net.Http;
 using System.Text;
 using Survivor.Characters;
-using Survivor.Challenges;
 
 namespace Survivor.Core
 {
@@ -146,8 +145,8 @@ Respond in character, keeping your response concise (1-2 sentences). Consider yo
                 },
                 gameContext = new Dictionary<string, bool>
                 {
-                    { "isInChallenge", ChallengeSystem.Instance.IsInChallenge() },
-                    { "isVotingTime", VotingSystem.Instance.IsVotingActive },
+                    { "isInChallenge", false }, // TODO: update when we implement challenges
+                    { "isTribalCouncil", false }, // TODO: update when we implement tribal council
                     { "isPlayer", character.IsPlayer }
                 },
                 playerHistory = GetPlayerHistory(character),

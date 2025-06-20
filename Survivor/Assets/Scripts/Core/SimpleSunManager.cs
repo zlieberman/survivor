@@ -220,14 +220,6 @@ namespace Survivor.Core
             // Handle 24-hour cycle - wrap time around midnight
             currentTimeInHours = currentTimeInHours % 24f;
             
-            // Debug: Log time and sun position every 10 seconds
-            if (Time.frameCount % 600 == 0) // Every 10 seconds at 60fps
-            {
-                int hour = Mathf.FloorToInt(currentTimeInHours);
-                int minute = Mathf.FloorToInt((currentTimeInHours - hour) * 60f);
-                Debug.Log($"[SimpleSunManager] Game time: {hour:D2}:{minute:D2}, Elapsed: {elapsedTime:F1}s, Total hours: {totalGameHours:F2}");
-            }
-            
             // Calculate sun position based on actual sunrise/sunset times
             // Sun rises at sunriseHour (5 AM) and sets at sunsetHour (8 PM)
             
@@ -254,12 +246,6 @@ namespace Survivor.Core
                 float timeSinceSunrise = currentTimeInHours - sunriseHour;
                 dayProgress = timeSinceSunrise / dayDuration;
                 isDay = true;
-            }
-            
-            // Debug: Log day progress
-            if (Time.frameCount % 600 == 0)
-            {
-                Debug.Log($"[SimpleSunManager] Day progress: {dayProgress:F2}, Is day: {isDay}, Sunrise: {sunriseHour}, Sunset: {sunsetHour}");
             }
             
             // Calculate sun position in 3D space
@@ -311,15 +297,6 @@ namespace Survivor.Core
                 float x = Mathf.Cos(radians);
                 float sunDistance = 100f;
                 sunPosition = new Vector3(x * sunDistance, -50f, 0f);
-            }
-            
-            // Debug: Log sun position and angle
-            if (Time.frameCount % 600 == 0)
-            {
-                float sunHeight = sunPosition.y;
-                float sunDistance = sunPosition.magnitude;
-                float sunAngleFromHorizon = Mathf.Asin(sunHeight / sunDistance) * Mathf.Rad2Deg;
-                Debug.Log($"[SimpleSunManager] Sun position: {sunPosition}, Angle from horizon: {sunAngleFromHorizon:F1}°");
             }
             
             // Update directional light position and rotation
@@ -494,14 +471,6 @@ namespace Survivor.Core
         private void UpdateSkyboxColors(Color skyColor, Color horizonColor)
         {
             if (skyboxMaterial == null) return;
-            
-            // Debug: Log available properties
-            if (Time.frameCount % 300 == 0) // Log every 5 seconds at 60fps
-            {
-                Debug.Log($"[SimpleSunManager] Skybox material: {skyboxMaterial.name}");
-                Debug.Log($"[SimpleSunManager] Skybox shader: {skyboxMaterial.shader.name}");
-                Debug.Log($"[SimpleSunManager] Testing skybox color changes...");
-            }
             
             // Procedural Skybox uses different property names
             // Try the standard Procedural Skybox properties

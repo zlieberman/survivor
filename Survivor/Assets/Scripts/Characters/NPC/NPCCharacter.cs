@@ -1,6 +1,6 @@
 using UnityEngine;
 using Survivor.Shared;
-using Survivor.Characters.Dialogue;
+using Survivor.Characters;
 using Survivor.Characters.UI;
 
 namespace Survivor.Characters
@@ -15,6 +15,21 @@ namespace Survivor.Characters
         private UnityEngine.CharacterController controller;
         private bool hasGeneratedStats = false;
         private CharacterModelManager modelManager;
+
+        // Properties for DialogueManager
+        public bool IsInteractable => isPlayerInRange;
+        public float DistanceToPlayer
+        {
+            get
+            {
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null)
+                {
+                    return Vector3.Distance(transform.position, player.transform.position);
+                }
+                return float.MaxValue;
+            }
+        }
 
         protected override void Awake()
         {
@@ -111,12 +126,6 @@ namespace Survivor.Characters
             if (wasInRange != isPlayerInRange)
             {
                 Debug.Log($"[NPCCharacter] Player {(isPlayerInRange ? "entered" : "exited")} interaction range of {characterName}");
-            }
-
-            // Notify dialogue manager of state change
-            if (wasInRange != isPlayerInRange && dialogueManager != null)
-            {
-                dialogueManager.SetInteractable(isPlayerInRange ? this : null, isPlayerInRange);
             }
         }
 

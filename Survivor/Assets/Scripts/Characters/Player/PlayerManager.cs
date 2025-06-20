@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Survivor.Characters.UI;
+using System.Linq;
 
 namespace Survivor.Characters
 {
@@ -8,8 +9,8 @@ namespace Survivor.Characters
     {
         public static PlayerManager Instance { get; private set; }
 
-        private List<PlayerController> registeredPlayers = new List<PlayerController>();
-        private PlayerController mainPlayer;
+        private List<Character> registeredPlayers = new List<Character>();
+        private Character mainPlayer;
 
         private void Awake()
         {
@@ -24,7 +25,7 @@ namespace Survivor.Characters
             }
         }
 
-        public void RegisterPlayer(PlayerController player)
+        public void RegisterPlayer(Character player)
         {
             if (!registeredPlayers.Contains(player))
             {
@@ -38,7 +39,7 @@ namespace Survivor.Characters
             }
         }
 
-        public void UnregisterPlayer(PlayerController player)
+        public void UnregisterPlayer(Character player)
         {
             registeredPlayers.Remove(player);
             
@@ -49,14 +50,14 @@ namespace Survivor.Characters
             }
         }
 
-        public PlayerController GetMainPlayer()
+        public Character GetMainPlayer()
         {
             return mainPlayer;
         }
 
-        public List<PlayerController> GetAllPlayers()
+        public List<Character> GetAllPlayers()
         {
-            return new List<PlayerController>(registeredPlayers);
+            return new List<Character>(registeredPlayers);
         }
     }
 } 

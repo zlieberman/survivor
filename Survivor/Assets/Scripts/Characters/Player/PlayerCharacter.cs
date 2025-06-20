@@ -1,5 +1,4 @@
 using UnityEngine;
-using Survivor.Characters.Dialogue;
 using System.Collections.Generic;
 using Survivor.Shared;
 using Survivor.Items;
@@ -9,7 +8,6 @@ namespace Survivor.Characters
     [DefaultExecutionOrder(-25)] // Run after TribeManager but before most other scripts
     public class PlayerCharacter : Character, IInventory
     {
-        private CharacterInteractionManager interactionManager;
         private StarterAssets.StarterAssetsInputs starterAssetsInputs;
         private StarterAssets.ThirdPersonController thirdPersonController;
 
@@ -27,29 +25,16 @@ namespace Survivor.Characters
             Debug.Log("[PlayerCharacter] Awake called");
             base.Awake();
             isPlayer = true;
-            
-            // Get or add interaction manager
-            interactionManager = GetComponent<CharacterInteractionManager>();
-            if (interactionManager == null)
-            {
-                Debug.Log("[PlayerCharacter] Adding CharacterInteractionManager component");
-                interactionManager = gameObject.AddComponent<CharacterInteractionManager>();
-            }
 
             // Get Starter Assets components
             starterAssetsInputs = GetComponent<StarterAssets.StarterAssetsInputs>();
             thirdPersonController = GetComponent<StarterAssets.ThirdPersonController>();
 
-            // Verify DialogueManager exists
-            var dialogueManager = FindObjectOfType<DialogueManager>();
-            if (dialogueManager == null)
+            // Register with PlayerManager
+            var playerManager = FindObjectOfType<PlayerManager>();
+            if (playerManager != null)
             {
-                Debug.LogError("[PlayerCharacter] No DialogueManager found in scene! Please add a DialogueManager GameObject.");
-            }
-            else
-            {
-                Debug.Log("[PlayerCharacter] Found DialogueManager in scene");
-                dialogueManager.OnDialogueStateChanged += OnDialogueStateChanged;
+                playerManager.RegisterPlayer(this);
             }
         }
 
@@ -173,11 +158,11 @@ namespace Survivor.Characters
 
         private void OnDestroy()
         {
-            // Unsubscribe from events
-            var dialogueManager = FindObjectOfType<DialogueManager>();
-            if (dialogueManager != null)
+            // Unregister from PlayerManager
+            var playerManager = FindObjectOfType<PlayerManager>();
+            if (playerManager != null)
             {
-                dialogueManager.OnDialogueStateChanged -= OnDialogueStateChanged;
+                playerManager.UnregisterPlayer(this);
             }
         }
     }

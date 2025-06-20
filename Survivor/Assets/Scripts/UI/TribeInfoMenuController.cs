@@ -23,10 +23,11 @@ namespace Survivor.UI
         private Transform contentParent;
         private GameObject currentStatsPanel;
         private List<GameObject> npcEntries = new List<GameObject>();
-        private Character playerCharacter;
-        private TribeManager tribeManager;
-        private PlayerManager playerManager;
         private TextMeshProUGUI headerText;
+        
+        // Store current tribe data
+        private string currentTribeName;
+        private List<Character> currentTribeMembers = new List<Character>();
 
         private void Awake()
         {
@@ -122,70 +123,7 @@ namespace Survivor.UI
 
         private void Update()
         {
-            // Check for T key press
-            if (Input.GetKeyDown(KeyCode.T))
-            {
-                Debug.Log("[TribeInfoMenuController] T key pressed!");
-                ToggleMenu();
-            }
-
-            // Try to find required components if not found yet
-            if (playerManager == null)
-            {
-                playerManager = FindObjectOfType<PlayerManager>();
-                if (playerManager != null)
-                {
-                    Debug.Log("[TribeInfoMenuController] Found PlayerManager!");
-                    // Debug all registered players
-                    var allPlayers = playerManager.GetAllPlayers();
-                    Debug.Log($"[TribeInfoMenuController] PlayerManager has {allPlayers.Count} registered players");
-                    foreach (var player in allPlayers)
-                    {
-                        Debug.Log($"[TribeInfoMenuController] Registered player: {player.name}");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[TribeInfoMenuController] PlayerManager not found in scene!");
-                }
-            }
-            else if (playerCharacter == null)
-            {
-                // Try to find the player character
-                var allCharacters = FindObjectsOfType<Character>();
-                Debug.Log($"[TribeInfoMenuController] Found {allCharacters.Length} Character components in scene");
-                foreach (var character in allCharacters)
-                {
-                    Debug.Log($"[TribeInfoMenuController] Found Character: {character.name}, IsPlayer: {character.IsPlayer}, Tribe: {character.TribeName}");
-                    if (character.IsPlayer)
-                    {
-                        playerCharacter = character;
-                        Debug.Log($"[TribeInfoMenuController] Found player character: {character.name}");
-                        break;
-                    }
-                }
-            }
-
-            if (tribeManager == null)
-            {
-                tribeManager = FindObjectOfType<TribeManager>();
-                if (tribeManager != null)
-                {
-                    Debug.Log("[TribeInfoMenuController] Found TribeManager!");
-                    // Debug all tribes
-                    var allTribes = tribeManager.GetAllTribeMembers();
-                    Debug.Log($"[TribeInfoMenuController] TribeManager has {allTribes.Count} total tribe members");
-                    foreach (var member in allTribes)
-                    {
-                        Debug.Log($"[TribeInfoMenuController] Tribe member: {member.CharacterName}, Tribe: {member.TribeName}, IsPlayer: {member.IsPlayer}");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[TribeInfoMenuController] TribeManager not found in scene!");
-                }
-            }
-
+            // Update UI if menu is open and enough time has passed
             if (isMenuOpen && Time.time >= nextUpdateTime)
             {
                 nextUpdateTime = Time.time + updateInterval;
@@ -209,6 +147,42 @@ namespace Survivor.UI
             }
         }
 
+        /// <summary>
+        /// Opens the menu if it's closed, or closes it if it's open
+        /// </summary>
+        public void ToggleMenu(bool forceOpen = false)
+        {
+            if (forceOpen)
+            {
+                isMenuOpen = true;
+                menuPanel.SetActive(true);
+                UpdateTribeInfo();
+            }
+            else
+            {
+                ToggleMenu();
+            }
+        }
+
+        /// <summary>
+        /// Public method to set tribe data from the manager
+        /// </summary>
+        /// <param name="tribeName">Name of the tribe</param>
+        /// <param name="tribeMembers">List of tribe members</param>
+        public void SetTribeInfo(string tribeName, List<Character> tribeMembers)
+        {
+            Debug.Log($"[TribeInfoMenuController] Setting tribe info for {tribeName} with {tribeMembers?.Count ?? 0} members");
+            
+            currentTribeName = tribeName;
+            currentTribeMembers = tribeMembers ?? new List<Character>();
+            
+            // Update the UI if the menu is currently open
+            if (isMenuOpen)
+            {
+                UpdateTribeInfo();
+            }
+        }
+
         private void UpdateTribeInfo()
         {
             Debug.Log("[TribeInfoMenuController] Updating tribe info");
@@ -220,58 +194,27 @@ namespace Survivor.UI
             }
             npcEntries.Clear();
 
-            // Check if we have all required components
-            if (playerCharacter == null)
+            // Check if we have tribe data
+            if (string.IsNullOrEmpty(currentTribeName) || currentTribeMembers == null || currentTribeMembers.Count == 0)
             {
-                Debug.LogWarning("[TribeInfoMenuController] Player character not found! Attempting to find player...");
-                var allCharacters = FindObjectsOfType<Character>();
-                foreach (var character in allCharacters)
+                Debug.LogWarning("[TribeInfoMenuController] No tribe data available to display!");
+                if (headerText != null)
                 {
-                    if (character.IsPlayer)
-                    {
-                        playerCharacter = character;
-                        Debug.Log($"[TribeInfoMenuController] Found player character: {character.name}");
-                        break;
-                    }
+                    headerText.text = "No Tribe Data";
                 }
-                
-                if (playerCharacter == null)
-                {
-                    Debug.LogError("[TribeInfoMenuController] Failed to find player character after multiple attempts!");
-                    return;
-                }
-            }
-
-            if (tribeManager == null)
-            {
-                Debug.LogWarning("[TribeInfoMenuController] TribeManager not found! Attempting to find TribeManager...");
-                tribeManager = FindObjectOfType<TribeManager>();
-                if (tribeManager == null)
-                {
-                    Debug.LogError("[TribeInfoMenuController] Failed to find TribeManager!");
-                    return;
-                }
-                Debug.Log("[TribeInfoMenuController] Found TribeManager!");
+                return;
             }
 
             // Update header text with tribe name
             if (headerText != null)
             {
-                headerText.text = $"{playerCharacter.TribeName} Tribe";
+                headerText.text = $"{currentTribeName} Tribe";
             }
 
-            // Get tribe members
-            var tribeMembers = tribeManager.GetTribeMembers(playerCharacter.TribeName);
-            if (tribeMembers == null || tribeMembers.Count == 0)
-            {
-                Debug.LogWarning($"[TribeInfoMenuController] No tribe members found for tribe: {playerCharacter.TribeName}");
-                return;
-            }
-
-            Debug.Log($"[TribeInfoMenuController] Found {tribeMembers.Count} tribe members");
+            Debug.Log($"[TribeInfoMenuController] Found {currentTribeMembers.Count} tribe members");
 
             // Create entries for each NPC
-            foreach (var npc in tribeMembers)
+            foreach (var npc in currentTribeMembers)
             {
                 if (npc.IsPlayer) continue; // Skip player
 

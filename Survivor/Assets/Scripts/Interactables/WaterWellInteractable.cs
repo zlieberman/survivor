@@ -1,5 +1,6 @@
 using UnityEngine;
 using Survivor.Shared;
+using Survivor.Characters;
 
 namespace Survivor.Interactables
 {
@@ -9,7 +10,7 @@ namespace Survivor.Interactables
         public float thirstReduction = 2f;
         public float interactionRadius = 4f;
 
-        private ICharacterStats playerStats;
+        private CharacterStats playerStats;
         private SphereCollider triggerCollider;
 
         protected override void Start()
@@ -31,7 +32,7 @@ namespace Survivor.Interactables
             if (other.CompareTag("Player"))
             {
                 Debug.Log("[WaterWellInteractable] Player entered interaction range");
-                playerStats = other.GetComponent<ICharacterStats>();
+                playerStats = other.GetComponent<CharacterStats>();
                 if (playerStats != null)
                 {
                     Debug.Log("[WaterWellInteractable] Found player stats component");
@@ -71,6 +72,19 @@ namespace Survivor.Interactables
             float oldThirst = playerStats.thirst;
             playerStats.thirst = Mathf.Max(0f, playerStats.thirst - thirstReduction);
             Debug.Log($"[WaterWellInteractable] Reduced thirst from {oldThirst} to {playerStats.thirst}");
+
+            // Update the UI if this is the player
+            var player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                var character = player.GetComponent<Survivor.Characters.Character>();
+                if (character != null && character.IsPlayer)
+                {
+                    var statusBar = FindObjectOfType<Survivor.UI.PlayerStatusBar>();
+                    if (statusBar != null)
+                        statusBar.SetStatus(character.Stats);
+                }
+            }
             
             // Start cooldown
             StartCooldown();

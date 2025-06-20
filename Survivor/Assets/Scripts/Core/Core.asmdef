@@ -11,10 +11,12 @@
         "Survivor.Environment",
         "Survivor.Generation",
         "Survivor.Shared",
+        "Survivor.Shared.Interfaces",
         "Survivor.Interactables",
         "Cinemachine",
         "Survivor.Characters",
-        "Survivor.UI"
+        "Survivor.UI",
+        "StarterAssets"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

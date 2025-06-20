@@ -2,12 +2,11 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
-using Survivor.Shared.Interfaces;
-using Survivor.Characters.Dialogue;
-using System.Text.RegularExpressions;
 using Survivor.Shared;
+using Survivor.Shared.Interfaces;
+using System.Text.RegularExpressions;
 
-namespace Survivor.Characters.UI
+namespace Survivor.Core.Interaction
 {
     public class ChatController : MonoBehaviour, IChatSystem
     {

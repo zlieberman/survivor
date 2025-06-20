@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Survivor.Shared;
 using Survivor.Shared.Interfaces;
 using Survivor.Characters.UI;
+using Survivor.UI;
 using System.Net.Http;
 using System.Text;
 using Newtonsoft.Json;
@@ -11,8 +12,9 @@ using System.Threading;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
 using Survivor.Characters;
+using TMPro;
 
-namespace Survivor.Characters.Dialogue
+namespace Survivor.Core.Interaction
 {
     [Serializable]
     public class ChatMessage
@@ -95,6 +97,12 @@ namespace Survivor.Characters.Dialogue
 
         private static readonly System.Random threadSafeRandom = new System.Random();
 
+        public bool IsInteractable { get; private set; }
+        public float DistanceToPlayer { get; private set; }
+
+        [Header("UI")]
+        [SerializeField] private DialogueUI dialogueUI;
+
         private void Awake()
         {
             if (instance == null)
@@ -163,24 +171,85 @@ namespace Survivor.Characters.Dialogue
                 inputBlockerObj.AddComponent<InputBlocker>();
                 Debug.Log("[DialogueManager] Created InputBlocker for chat input management");
             }
+
+            // Find DialogueUI if not assigned
+            if (dialogueUI == null)
+            {
+                dialogueUI = FindObjectOfType<DialogueUI>();
+                if (dialogueUI != null)
+                {
+                    Debug.Log("[DialogueManager] Found DialogueUI automatically");
+                }
+                else
+                {
+                    Debug.LogWarning("[DialogueManager] DialogueUI not found! Dialogue will not be shown.");
+                }
+            }
+
+            // Wire up send button to manager's handler
+            if (dialogueUI != null && dialogueUI.SendButton != null)
+            {
+                dialogueUI.SendButton.onClick.RemoveAllListeners();
+                dialogueUI.SendButton.onClick.AddListener(OnSendButtonClicked);
+            }
+
+            // Subscribe to dialogue UI close event
+            if (dialogueUI != null)
+            {
+                dialogueUI.OnDialogueClosed += EndDialogue;
+            }
         }
 
         private void Update()
         {
+            // Find all NPCCharacter instances in the scene
+            var npcs = GameObject.FindObjectsOfType<Survivor.Characters.NPCCharacter>();
+            Survivor.Characters.NPCCharacter closestNPC = null;
+            float closestDistance = float.MaxValue;
+
+            foreach (var npc in npcs)
+            {
+                if (npc.IsInteractable && npc.DistanceToPlayer <= interactionDistance)
+                {
+                    if (npc.DistanceToPlayer < closestDistance)
+                    {
+                        closestDistance = npc.DistanceToPlayer;
+                        closestNPC = npc;
+                    }
+                }
+            }
+
+            // Set the current interactable if found, otherwise null
+            if (closestNPC != null)
+            {
+                if (currentInteractable != closestNPC)
+                {
+                    currentInteractable = closestNPC;
+                    isInRange = true;
+                    Debug.Log($"[DialogueManager] Found interactable NPC: {closestNPC.CharacterName}");
+                }
+            }
+            else
+            {
+                if (currentInteractable != null)
+                {
+                    Debug.Log("[DialogueManager] No interactable NPC in range");
+                }
+                currentInteractable = null;
+                isInRange = false;
+            }
+
+            // Handle input for starting dialogue
             if (isInRange && Input.GetKeyDown(interactKey) && currentInteractable != null && !isInDialogue)
             {
                 Debug.Log($"[DialogueManager] Starting dialogue with {currentInteractable.GetDisplayName()}");
                 StartDialogue(currentInteractable.GetDisplayName(), "Starting conversation...");
             }
-        }
-
-        public void SetInteractable(IDialogueInteractable interactable, bool inRange)
-        {
-            if (currentInteractable != interactable || isInRange != inRange)
+            
+            // Debug logging for E key presses
+            if (Input.GetKeyDown(interactKey))
             {
-                Debug.Log($"[DialogueManager] Setting interactable: {(interactable != null ? interactable.GetDisplayName() : "null")}, inRange: {inRange}");
-                currentInteractable = inRange ? interactable : null;
-                isInRange = inRange;
+                Debug.Log($"[DialogueManager] E key pressed - isInRange: {isInRange}, currentInteractable: {(currentInteractable != null ? currentInteractable.GetDisplayName() : "null")}, isInDialogue: {isInDialogue}");
             }
         }
 
@@ -482,6 +551,12 @@ namespace Survivor.Characters.Dialogue
                 chatController.AddNPCMessage(initialMessage);
             }
 
+            // Show dialogue UI
+            if (dialogueUI != null)
+            {
+                dialogueUI.ShowDialogue(npcName, initialMessage);
+            }
+
             // Save current cursor state
             previousCursorLockState = Cursor.lockState;
             wasCursorVisible = Cursor.visible;
@@ -533,13 +608,45 @@ namespace Survivor.Characters.Dialogue
             Cursor.lockState = previousCursorLockState;
             Cursor.visible = wasCursorVisible;
 
+            // Hide dialogue UI
+            if (dialogueUI != null)
+            {
+                dialogueUI.CloseDialogue();
+            }
+
             // Notify listeners about dialogue state change
             OnDialogueStateChanged?.Invoke(false);
             OnDialogueLine?.Invoke("Dialogue ended");
 
-            // Clear current interactable
-            currentInteractable = null;
-            isInRange = false;
+            // Note: Don't clear currentInteractable or isInRange here
+            // The Update() method will handle this based on proximity
+        }
+
+        public void SetInteractable(IDialogueInteractable interactable, bool inRange)
+        {
+            currentInteractable = interactable;
+            isInRange = inRange;
+            
+            if (inRange && interactable != null)
+            {
+                Debug.Log($"[DialogueManager] Set interactable: {interactable.GetDisplayName()}");
+            }
+            else if (!inRange)
+            {
+                Debug.Log("[DialogueManager] Cleared interactable");
+            }
+        }
+
+        private async void OnSendButtonClicked()
+        {
+            if (dialogueUI == null) return;
+            var inputField = dialogueUI.GetType().GetField("playerInput", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(dialogueUI) as TMP_InputField;
+            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text)) return;
+            string playerMessage = inputField.text;
+            inputField.text = string.Empty;
+            dialogueUI.SetDialogueLine("..."); // Show loading or similar
+            string response = await GenerateResponse(playerMessage);
+            dialogueUI.SetDialogueLine(response);
         }
 
         private void OnDestroy()
@@ -548,6 +655,13 @@ namespace Survivor.Characters.Dialogue
             {
                 EndDialogue();
             }
+            
+            // Unsubscribe from dialogue UI events
+            if (dialogueUI != null)
+            {
+                dialogueUI.OnDialogueClosed -= EndDialogue;
+            }
+            
             currentDialogueCts?.Dispose();
             httpClient?.Dispose();
         }

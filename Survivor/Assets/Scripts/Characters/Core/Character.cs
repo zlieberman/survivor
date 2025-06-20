@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Survivor.Shared;
-using Survivor.Characters.Dialogue;
 using Survivor.Characters.UI;
 
 namespace Survivor.Characters
@@ -12,7 +11,7 @@ namespace Survivor.Characters
         Female
     }
 
-    public class Character : MonoBehaviour, IDialogueInteractable, ICharacterStats
+    public class Character : MonoBehaviour, IDialogueInteractable
     {
         [Header("Character Properties")]
         [SerializeField] protected string characterName;
@@ -22,13 +21,6 @@ namespace Survivor.Characters
         [SerializeField] protected bool isInChallenge = false;
         [SerializeField] protected Dictionary<string, float> Relationships = new Dictionary<string, float>();
         [SerializeField] protected Gender gender;
-
-        // ICharacterStats implementation
-        public float thirst
-        {
-            get => stats.thirst;
-            set => stats.thirst = value;
-        }
 
         // Public properties for external access
         public string CharacterName 
@@ -67,10 +59,35 @@ namespace Survivor.Characters
         }
         public IReadOnlyDictionary<string, float> CharacterRelationships => Relationships;
 
+        public float Energy
+        {
+            get => stats.energy;
+            set
+            {
+                stats.energy = value;
+            }
+        }
+
+        public float Hunger
+        {
+            get => stats.hunger;
+            set
+            {
+                stats.hunger = value;
+            }
+        }
+
+        public float Thirst
+        {
+            get => stats.thirst;
+            set
+            {
+                stats.thirst = value;
+            }
+        }
+
         protected NameTag nameTag;
         protected bool isPlayerInRange = false;
-        protected DialogueManager dialogueManager;
-
         protected virtual void Awake()
         {
             Debug.Log($"[Character] Awake called for {gameObject.name}");
@@ -82,9 +99,6 @@ namespace Survivor.Characters
 
             // Create name tag
             CreateNameTag();
-
-            // Get dialogue manager
-            dialogueManager = FindObjectOfType<DialogueManager>();
         }
 
         protected virtual void CreateNameTag()
@@ -162,20 +176,12 @@ namespace Survivor.Characters
 
         public virtual void OnDialogueStart()
         {
-            // Notify any listeners that dialogue has started
-            if (dialogueManager != null)
-            {
-                dialogueManager.StartDialogue(GetDisplayName(), "Starting conversation...");
-            }
+            // Notify any listeners that dialogue has started\
         }
 
         public virtual void OnDialogueEnd()
         {
             // Notify any listeners that dialogue has ended
-            if (dialogueManager != null)
-            {
-                dialogueManager.EndDialogue();
-            }
         }
     }
 } 

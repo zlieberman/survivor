@@ -1,11 +1,10 @@
 using UnityEngine;
 using Survivor.Common;
-using Survivor.Core;
 using Survivor.Characters;
 using Survivor.Environment;
 using Survivor.Generation;
-using Survivor.Challenges;
 using Survivor.Interactables;
+using Survivor.UI;
 using System.Collections;
 using System.Collections.Generic;
 using Cinemachine;
@@ -17,8 +16,6 @@ namespace Survivor.Core
     {
         [Header("Core Systems")]
         [SerializeField] private TribeManager tribeManager;
-        [SerializeField] private ChallengeSystem challengeSystem;
-        [SerializeField] private UIManager uiManager;
         [SerializeField] private EnvironmentManager environmentManager;
         [SerializeField] private PlayerManager playerManager;
 
@@ -28,6 +25,7 @@ namespace Survivor.Core
         [SerializeField] private GameObject dialoguePanel;
         [SerializeField] private GameObject challengePanel;
         [SerializeField] private GameObject pauseMenuPanel;
+        [SerializeField] private TribeInfoMenuController tribeInfoMenuController;
 
         [Header("Player")]
         [SerializeField] private GameObject playerPrefab;
@@ -47,34 +45,12 @@ namespace Survivor.Core
             
             // Note: InteractableManager should be created manually in the scene
             // Use the InteractableManagerCreator component if needed
-            
-            // Initialize UI Manager
-            if (uiManager != null)
-            {
-                uiManager.Initialize(
-                    mainMenuPanel,
-                    gameHudPanel,
-                    dialoguePanel,
-                    challengePanel,
-                    pauseMenuPanel
-                );
-                Debug.Log("[SceneSetup] UI Manager initialized");
-            }
 
             // Initialize Environment Manager
             if (environmentManager != null)
             {
                 environmentManager.Initialize();
                 Debug.Log("[SceneSetup] Environment Manager initialized");
-            }
-
-            // Initialize Challenge System
-            if (challengeSystem != null)
-            {
-                challengeSystem.onChallengeStarted.AddListener(OnChallengeStarted);
-                challengeSystem.onChallengeCompleted.AddListener(OnChallengeCompleted);
-                challengeSystem.onChallengeFailed.AddListener(OnChallengeFailed);
-                Debug.Log("[SceneSetup] Challenge System initialized");
             }
 
             // Initialize Player Manager
@@ -92,11 +68,40 @@ namespace Survivor.Core
             {
                 Debug.Log("[SceneSetup] Initializing Tribe Manager...");
                 tribeManager.Initialize();
+                
+                // Wire up UI controller with TribeManager
+                WireUpTribeInfoUI();
+                
                 StartCoroutine(CreateTribesAndSpawnPlayer());
             }
             else
             {
                 Debug.LogError("[SceneSetup] TribeManager reference is missing!");
+            }
+        }
+
+        private void WireUpTribeInfoUI()
+        {
+            // Try to find the UI controller if not assigned
+            if (tribeInfoMenuController == null)
+            {
+                tribeInfoMenuController = FindObjectOfType<TribeInfoMenuController>();
+                if (tribeInfoMenuController != null)
+                {
+                    Debug.Log("[SceneSetup] Found TribeInfoMenuController automatically");
+                }
+                else
+                {
+                    Debug.LogWarning("[SceneSetup] TribeInfoMenuController not found in scene!");
+                    return;
+                }
+            }
+
+            // Wire up the UI controller with TribeManager
+            if (tribeManager != null && tribeInfoMenuController != null)
+            {
+                tribeManager.SetUIController(tribeInfoMenuController);
+                Debug.Log("[SceneSetup] Successfully wired TribeInfoMenuController with TribeManager");
             }
         }
 
@@ -226,13 +231,13 @@ namespace Survivor.Core
             tribeManager.AddTribeMember(playerCharacter);
             Debug.Log("[SceneSetup] Registered player with TribeManager");
             
-            // Register with PlayerManager if it's a PlayerController
-            PlayerController playerController = player.GetComponent<PlayerController>();
-            if (playerController != null && playerManager != null)
+            // Register with PlayerManager if it's a Character
+            Character character = player.GetComponent<Character>();
+            if (character != null && playerManager != null)
             {
-                playerManager.RegisterPlayer(playerController);
+                playerManager.RegisterPlayer(character);
                 Debug.Log("[SceneSetup] Registered player with PlayerManager");
-            }            
+            }
         }
 
         private void SpawnTribeMembers(string tribeName)
@@ -271,32 +276,8 @@ namespace Survivor.Core
             }
         }
 
-        private void OnChallengeStarted(Challenge challenge)
-        {
-            Debug.Log($"Challenge started: {challenge.data.title}");
-            // Additional challenge start logic
-        }
-
-        private void OnChallengeCompleted(Challenge challenge)
-        {
-            Debug.Log($"Challenge completed: {challenge.data.title}");
-            // Additional challenge completion logic
-        }
-
-        private void OnChallengeFailed(Challenge challenge)
-        {
-            Debug.Log($"Challenge failed: {challenge.data.title}");
-            // Additional challenge failure logic
-        }
-
         private void OnDestroy()
         {
-            if (challengeSystem != null)
-            {
-                challengeSystem.onChallengeStarted.RemoveListener(OnChallengeStarted);
-                challengeSystem.onChallengeCompleted.RemoveListener(OnChallengeCompleted);
-                challengeSystem.onChallengeFailed.RemoveListener(OnChallengeFailed);
-            }
         }
     }
 } 

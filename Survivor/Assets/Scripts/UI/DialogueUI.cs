@@ -4,7 +4,7 @@ using TMPro;
 using System.Threading.Tasks;
 using Survivor.Shared;
 using Survivor.Shared.Interfaces;
-using Survivor.Characters.Dialogue;
+using System;
 
 namespace Survivor.UI
 {
@@ -18,23 +18,16 @@ namespace Survivor.UI
         [SerializeField] private Button sendButton;
         [SerializeField] private Button closeButton;
 
-        private IDialogueSystem dialogueSystem;
+        // Public property to access sendButton for external event wiring
+        public Button SendButton => sendButton;
+
+        // Event that the DialogueManager can subscribe to
+        public event Action OnDialogueClosed;
+
         private bool isProcessingResponse = false;
 
         private void Start()
         {
-            // Find the DialogueManager through the interface
-            dialogueSystem = FindObjectOfType<DialogueManager>() as IDialogueSystem;
-            if (dialogueSystem == null)
-            {
-                Debug.LogError("[DialogueUI] Could not find DialogueManager implementing IDialogueSystem");
-                return;
-            }
-
-            // Subscribe to dialogue events
-            dialogueSystem.OnDialogueStateChanged += HandleDialogueStateChanged;
-            dialogueSystem.OnDialogueLine += HandleDialogueLine;
-
             // Set up UI event listeners
             if (sendButton != null)
             {
@@ -56,16 +49,10 @@ namespace Survivor.UI
             }
         }
 
-        private void OnDestroy()
-        {
-            if (dialogueSystem != null)
-            {
-                dialogueSystem.OnDialogueStateChanged -= HandleDialogueStateChanged;
-                dialogueSystem.OnDialogueLine -= HandleDialogueLine;
-            }
-        }
-
-        private void HandleDialogueStateChanged(bool isInDialogue)
+        /// <summary>
+        /// Set the dialogue UI state and content from the manager/controller
+        /// </summary>
+        public void SetDialogueState(bool isInDialogue, string npcName = null, string message = null)
         {
             if (dialoguePanel != null)
             {
@@ -74,7 +61,14 @@ namespace Survivor.UI
 
             if (isInDialogue)
             {
-                // Focus the input field when dialogue starts
+                if (npcNameText != null && npcName != null)
+                {
+                    npcNameText.text = npcName;
+                }
+                if (dialogueText != null && message != null)
+                {
+                    dialogueText.text = message;
+                }
                 if (playerInput != null)
                 {
                     playerInput.ActivateInputField();
@@ -82,7 +76,6 @@ namespace Survivor.UI
             }
             else
             {
-                // Clear input when dialogue ends
                 if (playerInput != null)
                 {
                     playerInput.text = string.Empty;
@@ -90,7 +83,7 @@ namespace Survivor.UI
             }
         }
 
-        private void HandleDialogueLine(string message)
+        public void SetDialogueLine(string message)
         {
             if (dialogueText != null)
             {
@@ -100,29 +93,19 @@ namespace Survivor.UI
 
         public void ShowDialogue(string npcName, string initialMessage)
         {
-            if (npcNameText != null)
-            {
-                npcNameText.text = npcName;
-            }
-            if (dialogueText != null)
-            {
-                dialogueText.text = initialMessage;
-            }
-            if (dialoguePanel != null)
-            {
-                dialoguePanel.SetActive(true);
-            }
+            SetDialogueState(true, npcName, initialMessage);
         }
 
         public void CloseDialogue()
         {
-            if (dialogueSystem != null)
-            {
-                dialogueSystem.EndDialogue();
-            }
+            SetDialogueState(false);
+            
+            // Raise the event for the DialogueManager to handle
+            OnDialogueClosed?.Invoke();
         }
 
-        private async void SendMessage()
+        // The manager/controller should call this and handle async/response logic
+        public async void SendMessage()
         {
             if (isProcessingResponse || playerInput == null || string.IsNullOrWhiteSpace(playerInput.text))
             {
@@ -133,24 +116,12 @@ namespace Survivor.UI
             playerInput.text = string.Empty;
             isProcessingResponse = true;
 
-            try
+            // The manager/controller should handle the response and call SetDialogueLine
+            // This method can be left empty or raise an event if needed
+            isProcessingResponse = false;
+            if (playerInput != null)
             {
-                if (dialogueSystem != null)
-                {
-                    string response = await dialogueSystem.GenerateResponse(message);
-                    if (dialogueText != null)
-                    {
-                        dialogueText.text = response;
-                    }
-                }
-            }
-            finally
-            {
-                isProcessingResponse = false;
-                if (playerInput != null)
-                {
-                    playerInput.ActivateInputField();
-                }
+                playerInput.ActivateInputField();
             }
         }
     }

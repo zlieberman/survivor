@@ -6,11 +6,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.AI;
 using System.Collections;
 using Survivor.Characters;
-using Survivor.Characters.Dialogue;
 using Survivor.Characters.UI;
 using Survivor.Shared.Interfaces;
+using Survivor.Shared;
 using Survivor.UI;
 using Survivor.Interactables;
+using Survivor.Core.Interaction;
 
 public class GameManager : MonoBehaviour
 {

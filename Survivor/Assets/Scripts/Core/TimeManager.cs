@@ -54,19 +54,6 @@ namespace Survivor.Core
         {
             // Track elapsed real time
             ElapsedRealTime += Time.deltaTime;
-            
-            // Debug: Log time tracking every 10 seconds
-            if (Mathf.FloorToInt(ElapsedRealTime) % 10 == 0 && Time.frameCount % 60 == 0) // Every 10 seconds, but only once per second
-            {
-                var (hour, minute, day) = GameTimeService.GetCurrentGameTime();
-                Debug.Log($"[TimeManager] Time tracking - ElapsedRealTime: {ElapsedRealTime:F1}s, Game time: {hour:D2}:{minute:D2} (Day {day})");
-                Debug.Log($"[TimeManager] Starting time: {startHour:D2}:{startMinute:D2}, RealTimePerGameHour: {realTimePerGameHour}s");
-                
-                // Show the calculation breakdown
-                float totalGameHours = ElapsedRealTime / realTimePerGameHour;
-                float totalTimeInHours = totalGameHours + startHour + (startMinute / 60f);
-                Debug.Log($"[TimeManager] Calculation: {ElapsedRealTime:F1}s / {realTimePerGameHour}s = {totalGameHours:F2}h + {startHour}h + {startMinute/60f:F2}h = {totalTimeInHours:F2}h");
-            }
         }
 
         private IEnumerator UpdateGameTime()
@@ -172,24 +159,29 @@ namespace Survivor.Core
 
             if (playerCharacter == null) return;
 
-            var stats = playerCharacter.Stats;
-            
             // Calculate stat modifiers based on stamina and grit
-            float staminaModifier = 1f - (stats.stamina / 200f); // Higher stamina reduces negative effects
-            float gritModifier = 1f - (stats.grit / 200f); // Higher grit reduces negative effects
+            float staminaModifier = 1f - (playerCharacter.Stats.stamina / 200f); // Higher stamina reduces negative effects
+            float gritModifier = 1f - (playerCharacter.Stats.grit / 200f); // Higher grit reduces negative effects
             float combinedModifier = (staminaModifier + gritModifier) / 2f;
 
             // Update hunger (0.2-0.5 increase, reduced by stamina and grit)
             float hungerIncrease = Random.Range(0.2f, 0.5f) * combinedModifier;
-            stats.hunger = Mathf.Clamp(stats.hunger + hungerIncrease, 0f, 10f);
+            playerCharacter.Stats.hunger = Mathf.Clamp(playerCharacter.Stats.hunger + hungerIncrease, 0f, 10f);
 
             // Update thirst (1.5 increase, reduced by stamina and grit)
             float thirstIncrease = 1.5f * combinedModifier;
-            stats.thirst = Mathf.Clamp(stats.thirst + thirstIncrease, 0f, 10f);
+            playerCharacter.Stats.thirst = Mathf.Clamp(playerCharacter.Stats.thirst + thirstIncrease, 0f, 10f);
 
             // Update energy (1-5 decrease, reduced by stamina and grit)
             float energyDecrease = Random.Range(1f, 5f) * combinedModifier;
-            stats.energy = Mathf.Clamp(stats.energy - energyDecrease, 0f, 100f);
+            playerCharacter.Stats.energy = Mathf.Clamp(playerCharacter.Stats.energy - energyDecrease, 0f, 100f);
+
+            // Update the UI if this is the player
+            var statusBar = FindObjectOfType<Survivor.UI.PlayerStatusBar>();
+            if (playerCharacter.IsPlayer && statusBar != null)
+            {
+                statusBar.SetStatus(playerCharacter.Stats);
+            }
 
             Debug.Log($"[TimeManager] Updated player stats - Hunger: +{hungerIncrease:F2}, Thirst: +{thirstIncrease:F2}, Energy: -{energyDecrease:F2}");
         }

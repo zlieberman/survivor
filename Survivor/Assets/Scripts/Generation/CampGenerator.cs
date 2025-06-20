@@ -154,6 +154,14 @@ namespace Survivor.Generation
                 tent.transform.parent = transform;
                 tent.transform.localScale = tentScale;
                 AddCampObjectPhysics(tent);
+                
+                // Set the layer to Interactable
+                tent.layer = LayerMask.NameToLayer("Interactable");
+                
+                // Add TentInteractable component
+                tent.AddComponent<TentInteractable>();
+                
+                Debug.Log($"Tent placed at {tentPosition} with TentInteractable component");
 
                 // Create and set up the camp spawn point
                 GameObject spawnPointObj = new GameObject("CampSpawnPoint");

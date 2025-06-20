@@ -5,7 +5,9 @@
         "Survivor.Common",
         "Survivor.Shared",
         "Unity.TextMeshPro",
-        "Cinemachine"
+        "Cinemachine",
+        "Survivor.Characters",
+        "Survivor.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

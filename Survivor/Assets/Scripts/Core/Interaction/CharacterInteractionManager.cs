@@ -1,8 +1,7 @@
 using UnityEngine;
 using Survivor.Shared;
-using Survivor.Characters.Dialogue;
 
-namespace Survivor.Characters
+namespace Survivor.Core.Interaction
 {
     public class CharacterInteractionManager : MonoBehaviour
     {

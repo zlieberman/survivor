@@ -4,9 +4,12 @@ using System.Collections.Generic;
 using UnityEngine.AI;
 using StarterAssets;
 using System.Linq;
+using Survivor.UI;
+using StarterAssets;
+using Survivor.Characters;
 using Survivor.Generation;
 
-namespace Survivor.Characters
+namespace Survivor.Core
 {
     [DefaultExecutionOrder(-50)]
     public class TribeManager : MonoBehaviour, ITribeManager, INPCManager
@@ -24,11 +27,14 @@ namespace Survivor.Characters
 
         [Header("Prefabs")]
         public GameObject npcPrefab;
-
+        
+        [Header("UI")]
+        [SerializeField] private TribeInfoMenuController tribeInfoMenuController;
+        
         private Dictionary<string, List<Character>> tribes = new Dictionary<string, List<Character>>();
         private List<Character> tribeMembers = new List<Character>();
         private bool isInitialized = false;
-        private CampGenerator campGenerator;
+        private ProceduralIslandGenerator islandGenerator;
 
         private void Awake()
         {
@@ -43,10 +49,43 @@ namespace Survivor.Characters
             }
 
             Debug.Log($"[TribeManager] Awake - tribeAName: {tribeAName}, tribeBName: {tribeBName}");
-            campGenerator = FindObjectOfType<CampGenerator>();
-            if (campGenerator == null)
+        }
+
+        private void Start()
+        {
+            // Find the island generator
+            islandGenerator = FindObjectOfType<ProceduralIslandGenerator>();
+            if (islandGenerator == null)
             {
-                Debug.LogError("CampGenerator not found in scene!");
+                Debug.LogError("[TribeManager] Could not find ProceduralIslandGenerator in scene!");
+            }
+            else
+            {
+                Debug.Log("[TribeManager] Found ProceduralIslandGenerator");
+            }
+
+            // Try to find the UI controller if not assigned
+            if (tribeInfoMenuController == null)
+            {
+                tribeInfoMenuController = FindObjectOfType<TribeInfoMenuController>();
+                if (tribeInfoMenuController != null)
+                {
+                    Debug.Log("[TribeManager] Found TribeInfoMenuController automatically");
+                }
+                else
+                {
+                    Debug.LogWarning("[TribeManager] TribeInfoMenuController not found! UI updates will not work.");
+                }
+            }
+        }
+
+        private void Update()
+        {
+            // Handle T key press to show tribe info menu
+            if (Input.GetKeyDown(KeyCode.T))
+            {
+                Debug.Log("[TribeManager] T key pressed - showing tribe info menu");
+                ShowTribeInfoMenu();
             }
         }
 
@@ -71,7 +110,15 @@ namespace Survivor.Characters
                 yield break;
             }
 
-            while (campGenerator == null || !campGenerator.CampPlaced)
+            // Wait for island generation and camp placement
+            while (islandGenerator == null || !islandGenerator.IsGenerationComplete())
+            {
+                Debug.Log("Waiting for island generation to complete...");
+                yield return new WaitForSeconds(0.5f);
+            }
+
+            // Wait for camp to be placed
+            while (islandGenerator.GetCampPosition() == null)
             {
                 Debug.Log("Waiting for camp to be placed...");
                 yield return new WaitForSeconds(0.5f);
@@ -130,63 +177,38 @@ namespace Survivor.Characters
 
         private Vector3 FindValidSpawnPosition(List<Character> existingMembers)
         {
-            if (campGenerator == null || !campGenerator.CampPlaced)
+            Vector3? campPos = islandGenerator?.GetCampPosition();
+            if (!campPos.HasValue)
             {
-                Debug.LogError("Camp not placed yet!");
+                Debug.LogError("Camp position not found!");
                 return Vector3.zero;
             }
 
-            Vector3 campCenter = campGenerator.TentPosition;
-            Vector3 position = Vector3.zero;
-            int attempts = 0;
-            bool validPosition = false;
-
-            while (!validPosition && attempts < maxSpawnAttempts)
+            for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
             {
-                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-                float distance = Random.Range(minSpawnDistance, spawnRadius);
-                position = campCenter + new Vector3(
-                    Mathf.Cos(angle) * distance,
-                    0,
-                    Mathf.Sin(angle) * distance
-                );
+                Vector3 randomOffset = Random.insideUnitSphere * spawnRadius;
+                randomOffset.y = 0; // Keep on the same Y level
+                Vector3 spawnPos = campPos.Value + randomOffset;
 
-                Terrain terrain = Terrain.activeTerrain;
-                if (terrain != null)
+                // Check distance from existing members
+                bool tooClose = false;
+                foreach (var member in existingMembers)
                 {
-                    position.y = terrain.SampleHeight(position);
-                }
-
-                validPosition = true;
-                foreach (Character member in existingMembers)
-                {
-                    if (Vector3.Distance(position, member.transform.position) < minSpawnDistance)
+                    if (Vector3.Distance(spawnPos, member.transform.position) < minSpawnDistance)
                     {
-                        validPosition = false;
+                        tooClose = true;
                         break;
                     }
                 }
 
-                attempts++;
-            }
-
-            if (!validPosition)
-            {
-                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-                position = campCenter + new Vector3(
-                    Mathf.Cos(angle) * spawnRadius,
-                    0,
-                    Mathf.Sin(angle) * spawnRadius
-                );
-
-                Terrain terrain = Terrain.activeTerrain;
-                if (terrain != null)
+                if (!tooClose)
                 {
-                    position.y = terrain.SampleHeight(position);
+                    return spawnPos;
                 }
             }
 
-            return position;
+            Debug.LogWarning("Could not find valid spawn position, using camp position");
+            return campPos.Value;
         }
 
         public List<Character> GetTribeMembers(string tribeName)
@@ -216,6 +238,9 @@ namespace Survivor.Characters
                 {
                     tribe.Remove(member);
                 }
+                
+                // Update UI if this affects the current tribe
+                UpdateTribeInfoUI();
             }
         }
 
@@ -269,6 +294,9 @@ namespace Survivor.Characters
             if (member != null && !tribeMembers.Contains(member))
             {
                 tribeMembers.Add(member);
+                
+                // Update UI if this affects the current tribe
+                UpdateTribeInfoUI();
             }
         }
 
@@ -278,6 +306,9 @@ namespace Survivor.Characters
             if (member != null)
             {
                 tribeMembers.Remove(member);
+                
+                // Update UI if this affects the current tribe
+                UpdateTribeInfoUI();
             }
         }
 
@@ -337,6 +368,61 @@ namespace Survivor.Characters
                     Debug.Log($"Spawned tribe member {member.CharacterName} at position {spawnPosition}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Updates the tribe info UI with current data
+        /// </summary>
+        public void UpdateTribeInfoUI()
+        {
+            if (tribeInfoMenuController == null)
+            {
+                Debug.LogWarning("[TribeManager] TribeInfoMenuController not available for UI update");
+                return;
+            }
+
+            var player = GetPlayer();
+            if (player == null)
+            {
+                Debug.LogWarning("[TribeManager] No player found for UI update");
+                return;
+            }
+
+            var tribeMembers = GetTribeMembers(player.TribeName);
+            tribeInfoMenuController.SetTribeInfo(player.TribeName, tribeMembers);
+        }
+
+        /// <summary>
+        /// Shows the tribe info menu with current data
+        /// </summary>
+        public void ShowTribeInfoMenu()
+        {
+            if (tribeInfoMenuController == null)
+            {
+                Debug.LogWarning("[TribeManager] TribeInfoMenuController not available");
+                return;
+            }
+
+            var player = GetPlayer();
+            if (player == null)
+            {
+                Debug.LogWarning("[TribeManager] No player found for tribe info menu");
+                return;
+            }
+
+            var tribeMembers = GetTribeMembers(player.TribeName);
+            tribeInfoMenuController.SetTribeInfo(player.TribeName, tribeMembers);
+            tribeInfoMenuController.ToggleMenu();
+        }
+
+        /// <summary>
+        /// Sets the UI controller reference
+        /// </summary>
+        /// <param name="uiController">The TribeInfoMenuController to use</param>
+        public void SetUIController(TribeInfoMenuController uiController)
+        {
+            tribeInfoMenuController = uiController;
+            Debug.Log("[TribeManager] UI Controller set");
         }
     }
 } 

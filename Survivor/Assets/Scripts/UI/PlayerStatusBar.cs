@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Survivor.Characters;
-using System.Collections;
+using Survivor.Shared;
 
 namespace Survivor.UI
 {
@@ -18,122 +17,25 @@ namespace Survivor.UI
         [SerializeField] private TextMeshProUGUI hungerText;
         [SerializeField] private TextMeshProUGUI thirstText;
 
-        private Character playerCharacter;
-        
-        // Cache previous values to avoid unnecessary updates and logging
-        private float previousEnergyFill = -1f;
-        private float previousHungerFill = -1f;
-        private float previousThirstFill = -1f;
-
-        private void Start()
+        public void SetStatus(CharacterStats data)
         {
-            // Ensure all bars are set to fill type
-            SetupBar(energyBarFill, "Energy");
-            SetupBar(hungerBarFill, "Hunger");
-            SetupBar(thirstBarFill, "Thirst");
-
-            StartCoroutine(WaitForPlayer());
-        }
-
-        private void SetupBar(Image bar, string barName)
-        {
-            if (bar != null)
-            {
-                bar.type = Image.Type.Filled;
-                bar.fillMethod = Image.FillMethod.Horizontal;
-                bar.fillOrigin = (int)Image.OriginHorizontal.Left;
-                bar.fillAmount = 1f; // Start full
-                Debug.Log($"[PlayerStatusBar] Set up {barName} bar with fill amount: {bar.fillAmount}");
-            }
-            else
-            {
-                Debug.LogError($"[PlayerStatusBar] {barName} bar fill image is not assigned!");
-            }
-        }
-
-        private IEnumerator WaitForPlayer()
-        {
-            // Wait for the player to be spawned
-            while (playerCharacter == null)
-            {
-                var characters = FindObjectsOfType<Character>();
-                foreach (var character in characters)
-                {
-                    if (character.IsPlayer)
-                    {
-                        playerCharacter = character;
-                        break;
-                    }
-                }
-
-                if (playerCharacter == null)
-                {
-                    yield return new WaitForSeconds(0.1f); // Wait a bit before trying again
-                }
-            }
-
-            UpdateStatusDisplay();
-        }
-
-        private void Update()
-        {
-            if (playerCharacter != null)
-            {
-                UpdateStatusDisplay();
-            }
-        }
-
-        private void UpdateStatusDisplay()
-        {
-            var stats = playerCharacter.Stats;
-
-            // Update energy
+            // Energy
             if (energyBarFill != null)
-            {
-                float energyFill = stats.energy / 100f;
-                if (energyFill != previousEnergyFill)
-                {
-                    energyBarFill.fillAmount = energyFill;
-                    Debug.Log($"[PlayerStatusBar] Energy fill amount: {energyFill}");
-                    previousEnergyFill = energyFill;
-                }
-            }
+                energyBarFill.fillAmount = data.energy / 100f;
             if (energyText != null)
-            {
-                energyText.text = $"{stats.energy:F0}%";
-            }
+                energyText.text = $"{data.energy:F0}%";
 
-            // Update hunger
+            // Hunger
             if (hungerBarFill != null)
-            {
-                float hungerFill = stats.hunger / 10f;
-                if (hungerFill != previousHungerFill)
-                {
-                    hungerBarFill.fillAmount = hungerFill;
-                    Debug.Log($"[PlayerStatusBar] Hunger fill amount: {hungerFill}");
-                    previousHungerFill = hungerFill;
-                }
-            }
+                hungerBarFill.fillAmount = data.hunger / 10f;
             if (hungerText != null)
-            {
-                hungerText.text = $"{stats.hunger:F1}/10";
-            }
+                hungerText.text = $"{data.hunger:F1}/10";
 
-            // Update thirst
+            // Thirst
             if (thirstBarFill != null)
-            {
-                float thirstFill = stats.thirst / 10f;
-                if (thirstFill != previousThirstFill)
-                {
-                    thirstBarFill.fillAmount = thirstFill;
-                    Debug.Log($"[PlayerStatusBar] Thirst fill amount: {thirstFill}");
-                    previousThirstFill = thirstFill;
-                }
-            }
+                thirstBarFill.fillAmount = data.thirst / 10f;
             if (thirstText != null)
-            {
-                thirstText.text = $"{stats.thirst:F1}/10";
-            }
+                thirstText.text = $"{data.thirst:F1}/10";
         }
     }
 } 
