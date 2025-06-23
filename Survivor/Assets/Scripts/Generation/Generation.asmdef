@@ -6,6 +6,7 @@
         "Survivor.Items",
         "Survivor.Shared",
         "Survivor.Interactables",
+        "Survivor.Characters",
         "Unity.AI.Navigation"
     ],
     "includePlatforms": [],

@@ -154,6 +154,66 @@ namespace Survivor.Core
                     string memberName = NPCGenerator.Instance.GenerateRandomName(gender);
                     character.Initialize(memberName, tribeName, includePlayer && i == 0, i);
                     
+                    // Add NavMeshAgent if not present
+                    NavMeshAgent navAgent = npcObject.GetComponent<NavMeshAgent>();
+                    if (navAgent == null)
+                    {
+                        navAgent = npcObject.AddComponent<NavMeshAgent>();
+                        navAgent.radius = 0.5f;
+                        navAgent.height = 2f;
+                        navAgent.baseOffset = 0f;
+                        navAgent.speed = 2f;
+                        navAgent.angularSpeed = 120f;
+                        navAgent.acceleration = 8f;
+                        navAgent.stoppingDistance = 0.5f;
+                        Debug.Log($"Added NavMeshAgent to {memberName}");
+                    }
+
+                    // Add NPCBehavior component if not present
+                    Survivor.Characters.NPCBehavior npcBehavior = npcObject.GetComponent<Survivor.Characters.NPCBehavior>();
+                    if (npcBehavior == null)
+                    {
+                        npcBehavior = npcObject.AddComponent<Survivor.Characters.NPCBehavior>();
+                        Debug.Log($"Added NPCBehavior to {memberName}");
+                    }
+
+                    // Set up animator for NPCBehavior
+                    Animator animator = npcObject.GetComponent<Animator>();
+                    if (animator != null)
+                    {
+                        npcBehavior.animator = animator;
+                        Debug.Log($"Assigned animator to NPCBehavior for {memberName}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"No Animator component found on {memberName}, NPCBehavior will not animate");
+                    }
+
+                    // Add CharacterController if not present (required for NPCBehavior)
+                    UnityEngine.CharacterController characterController = npcObject.GetComponent<UnityEngine.CharacterController>();
+                    if (characterController == null)
+                    {
+                        characterController = npcObject.AddComponent<UnityEngine.CharacterController>();
+                        characterController.height = 2f;
+                        characterController.radius = 0.5f;
+                        characterController.stepOffset = 0.3f;
+                        Debug.Log($"Added CharacterController to {memberName}");
+                    }
+
+                    // Add collider if not present
+                    Collider collider = npcObject.GetComponent<Collider>();
+                    if (collider == null)
+                    {
+                        CapsuleCollider capsuleCollider = npcObject.AddComponent<CapsuleCollider>();
+                        capsuleCollider.height = 2f;
+                        capsuleCollider.radius = 0.5f;
+                        capsuleCollider.center = new Vector3(0, 1f, 0);
+                        Debug.Log($"Added CapsuleCollider to {memberName}");
+                    }
+
+                    // Configure NPC for NavMeshAgent movement (disable conflicting components)
+                    ConfigureNPCForNavMeshMovement(npcObject, memberName);
+                    
                     tribes[tribeName].Add(character);
                     tribeMembers.Add(character);
 
@@ -365,10 +425,80 @@ namespace Survivor.Core
                 {
                     Vector3 spawnPosition = FindValidSpawnPosition(tribes[tribeName]);
                     member.transform.position = spawnPosition;
+                    
+                    // Ensure NPC has all necessary components for wandering
+                    EnsureNPCComponents(member.gameObject);
+                    
                     member.gameObject.SetActive(true);
                     Debug.Log($"Spawned tribe member {member.CharacterName} at position {spawnPosition}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Ensures that an NPC GameObject has all necessary components for wandering behavior
+        /// </summary>
+        private void EnsureNPCComponents(GameObject npcObject)
+        {
+            // Add NavMeshAgent if not present
+            NavMeshAgent navAgent = npcObject.GetComponent<NavMeshAgent>();
+            if (navAgent == null)
+            {
+                navAgent = npcObject.AddComponent<NavMeshAgent>();
+                navAgent.radius = 0.5f;
+                navAgent.height = 2f;
+                navAgent.baseOffset = 0f;
+                navAgent.speed = 2f;
+                navAgent.angularSpeed = 120f;
+                navAgent.acceleration = 8f;
+                navAgent.stoppingDistance = 0.5f;
+                Debug.Log($"Added NavMeshAgent to {npcObject.name}");
+            }
+
+            // Add NPCBehavior component if not present
+            Survivor.Characters.NPCBehavior npcBehavior = npcObject.GetComponent<Survivor.Characters.NPCBehavior>();
+            if (npcBehavior == null)
+            {
+                npcBehavior = npcObject.AddComponent<Survivor.Characters.NPCBehavior>();
+                Debug.Log($"Added NPCBehavior to {npcObject.name}");
+            }
+
+            // Set up animator for NPCBehavior
+            Animator animator = npcObject.GetComponent<Animator>();
+            if (animator != null)
+            {
+                npcBehavior.animator = animator;
+                Debug.Log($"Assigned animator to NPCBehavior for {npcObject.name}");
+            }
+            else
+            {
+                Debug.LogWarning($"No Animator component found on {npcObject.name}, NPCBehavior will not animate");
+            }
+
+            // Add CharacterController if not present (required for NPCBehavior)
+            UnityEngine.CharacterController characterController = npcObject.GetComponent<UnityEngine.CharacterController>();
+            if (characterController == null)
+            {
+                characterController = npcObject.AddComponent<UnityEngine.CharacterController>();
+                characterController.height = 2f;
+                characterController.radius = 0.5f;
+                characterController.stepOffset = 0.3f;
+                Debug.Log($"Added CharacterController to {npcObject.name}");
+            }
+
+            // Add collider if not present
+            Collider collider = npcObject.GetComponent<Collider>();
+            if (collider == null)
+            {
+                CapsuleCollider capsuleCollider = npcObject.AddComponent<CapsuleCollider>();
+                capsuleCollider.height = 2f;
+                capsuleCollider.radius = 0.5f;
+                capsuleCollider.center = new Vector3(0, 1f, 0);
+                Debug.Log($"Added CapsuleCollider to {npcObject.name}");
+            }
+
+            // Configure NPC for NavMeshAgent movement (disable conflicting components)
+            ConfigureNPCForNavMeshMovement(npcObject, npcObject.name);
         }
 
         /// <summary>
@@ -424,6 +554,80 @@ namespace Survivor.Core
         {
             tribeInfoMenuController = uiController;
             Debug.Log("[TribeManager] UI Controller set");
+        }
+
+        private void ConfigureNPCForNavMeshMovement(GameObject npcObject, string memberName)
+        {
+            Debug.Log($"Configuring NPC {memberName} for NavMeshAgent movement");
+
+            // Disable ThirdPersonController (conflicts with NavMeshAgent)
+            MonoBehaviour thirdPersonController = npcObject.GetComponent<MonoBehaviour>();
+            if (thirdPersonController != null && thirdPersonController.GetType().Name.Contains("ThirdPersonController"))
+            {
+                thirdPersonController.enabled = false;
+                Debug.Log($"Disabled ThirdPersonController on {memberName}");
+            }
+
+            // Disable PlayerInput component (not needed for NPCs)
+            var playerInput = npcObject.GetComponent("UnityEngine.InputSystem.PlayerInput");
+            if (playerInput != null)
+            {
+                var enabledProperty = playerInput.GetType().GetProperty("enabled");
+                if (enabledProperty != null)
+                {
+                    enabledProperty.SetValue(playerInput, false);
+                    Debug.Log($"Disabled PlayerInput on {memberName}");
+                }
+            }
+
+            // Disable StarterAssets.ThirdPersonController if it exists
+            var starterAssetsController = npcObject.GetComponent("StarterAssets.ThirdPersonController");
+            if (starterAssetsController != null)
+            {
+                var enabledProperty = starterAssetsController.GetType().GetProperty("enabled");
+                if (enabledProperty != null)
+                {
+                    enabledProperty.SetValue(starterAssetsController, false);
+                    Debug.Log($"Disabled StarterAssets.ThirdPersonController on {memberName}");
+                }
+            }
+
+            // Disable any other movement controllers that might conflict
+            var movementControllers = npcObject.GetComponents<MonoBehaviour>();
+            foreach (var controller in movementControllers)
+            {
+                string controllerName = controller.GetType().Name.ToLower();
+                if (controllerName.Contains("controller") && 
+                    !controllerName.Contains("npc") && 
+                    !controllerName.Contains("behavior") &&
+                    controller.enabled)
+                {
+                    controller.enabled = false;
+                    Debug.Log($"Disabled conflicting controller {controller.GetType().Name} on {memberName}");
+                }
+            }
+
+            // Ensure NavMeshAgent is properly configured
+            NavMeshAgent navAgent = npcObject.GetComponent<NavMeshAgent>();
+            if (navAgent != null)
+            {
+                navAgent.enabled = true;
+                navAgent.updatePosition = true;
+                navAgent.updateRotation = true;
+                navAgent.updateUpAxis = false;
+                Debug.Log($"Configured NavMeshAgent on {memberName}");
+            }
+
+            // Ensure CharacterController doesn't interfere with NavMeshAgent
+            UnityEngine.CharacterController characterController = npcObject.GetComponent<UnityEngine.CharacterController>();
+            if (characterController != null)
+            {
+                // Keep CharacterController for collision detection but don't use it for movement
+                characterController.enabled = true;
+                Debug.Log($"Kept CharacterController for collision on {memberName}");
+            }
+
+            Debug.Log($"Finished configuring {memberName} for NavMeshAgent movement");
         }
     }
 } 

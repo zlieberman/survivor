@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 using Survivor.Shared;
 using System;
 using Survivor.Items;
+using Unity.AI.Navigation;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -98,11 +99,14 @@ namespace Survivor.Generation
             // Initialize terrain data
             terrainData = new TerrainData();
             terrainData.heightmapResolution = 513; // Must be power of 2 plus 1
-            terrainData.size = new Vector3(terrainSize, maxHeight, terrainSize);
+            
+            // Apply GameObject scale to terrain size
+            float scaledTerrainSize = terrainSize * transform.localScale.x;
+            terrainData.size = new Vector3(scaledTerrainSize, maxHeight * transform.localScale.y, scaledTerrainSize);
             terrain.terrainData = terrainData;
 
-            // Position the terrain so its center is at world origin
-            transform.position = new Vector3(-terrainSize * 0.5f, 0, -terrainSize * 0.5f);
+            // Position the terrain so its center is at world origin, accounting for GameObject scale
+            transform.position = new Vector3(-scaledTerrainSize * 0.5f, 0, -scaledTerrainSize * 0.5f);
 
             // Set terrain material
             if (terrainMaterial != null)
@@ -148,12 +152,13 @@ namespace Survivor.Generation
             waterPlane.name = "Water";
             waterPlane.transform.parent = transform;
 
-            // Scale the plane to match terrain size
-            float planeScale = terrainSize / 10f; // Default plane is 10x10 units
+            // Scale the plane to match terrain size, accounting for GameObject scale
+            float scaledTerrainSize = terrainSize * transform.localScale.x;
+            float planeScale = scaledTerrainSize / 10f; // Default plane is 10x10 units
             waterPlane.transform.localScale = new Vector3(planeScale, 1, planeScale);
 
             // Position the plane at water height
-            waterPlane.transform.position = new Vector3(0, maxHeight * waterHeight, 0);
+            waterPlane.transform.position = new Vector3(0, maxHeight * waterHeight * transform.localScale.y, 0);
 
             // Apply water material
             MeshRenderer waterRenderer = waterPlane.GetComponent<MeshRenderer>();
@@ -181,7 +186,7 @@ namespace Survivor.Generation
 
             // Add water behavior script
             WaterBehavior waterBehavior = waterPlane.AddComponent<WaterBehavior>();
-            waterBehavior.waterHeight = maxHeight * waterHeight;
+            waterBehavior.waterHeight = maxHeight * waterHeight * transform.localScale.y;
         }
 
         public void GenerateIsland()
@@ -233,11 +238,60 @@ namespace Survivor.Generation
             // Update terrain settings
             terrain.Flush();
             
+            // Configure NavMeshSurface to match terrain size
+            ConfigureNavMeshSurface();
+            
             // Mark generation as complete
             isGenerationComplete = true;
 
             // Notify any waiting components
+            Debug.Log("[ProceduralIslandGenerator] Sending OnTerrainGenerated message to all components");
             SendMessage("OnTerrainGenerated", SendMessageOptions.DontRequireReceiver);
+        }
+
+        private void ConfigureNavMeshSurface()
+        {
+            // Find NavMeshSurface component on this GameObject
+            var navMeshSurface = GetComponent<Unity.AI.Navigation.NavMeshSurface>();
+            if (navMeshSurface != null)
+            {
+                // Calculate the scaled terrain size
+                float scaledTerrainSize = terrainSize * transform.localScale.x;
+                
+                // Set the NavMeshSurface size to match the terrain size
+                navMeshSurface.size = new Vector3(scaledTerrainSize, maxHeight * transform.localScale.y, scaledTerrainSize);
+                
+                // Center the NavMeshSurface at the terrain center
+                navMeshSurface.center = new Vector3(scaledTerrainSize / 2f, maxHeight * transform.localScale.y * 0.5f, scaledTerrainSize / 2f);
+                
+                Debug.Log($"[ProceduralIslandGenerator] Configured NavMeshSurface: size={navMeshSurface.size}, center={navMeshSurface.center}");
+                
+                // Rebuild the navmesh
+                RebuildNavMesh();
+            }
+            else
+            {
+                Debug.LogWarning("[ProceduralIslandGenerator] No NavMeshSurface component found on this GameObject");
+            }
+        }
+
+        public void RebuildNavMesh()
+        {
+            var navMeshSurface = GetComponent<Unity.AI.Navigation.NavMeshSurface>();
+            if (navMeshSurface != null)
+            {
+                Debug.Log("[ProceduralIslandGenerator] Rebuilding NavMesh...");
+                navMeshSurface.BuildNavMesh();
+            }
+        }
+
+        public void RegenerateWithCurrentScale()
+        {
+            Debug.Log("[ProceduralIslandGenerator] Regenerating terrain with current scale...");
+            isInitialized = false;
+            InitializeComponents();
+            GenerateIsland();
+            StartCoroutine(GenerateIslandFeatures());
         }
 
         public bool IsGenerationComplete()
@@ -414,7 +468,7 @@ namespace Survivor.Generation
 
                 float x = isNorthSouth ? startX + xOffset : xOffset;
                 float z = isNorthSouth ? zOffset : startZ + zOffset;
-                float y = terrain.SampleHeight(new Vector3(x, 0, z)) - river.riverDepth;
+                float y = terrain.SampleHeight(new Vector3(x, 0, z)) - (river.riverDepth * transform.localScale.y);
 
                 path[i] = new Vector3(x, y, z);
             }
@@ -429,6 +483,9 @@ namespace Survivor.Generation
             List<int> triangles = new List<int>();
             List<Vector2> uvs = new List<Vector2>();
 
+            // Scale river width by GameObject scale
+            float scaledRiverWidth = river.riverWidth * transform.localScale.x;
+
             // Create vertices along the path
             for (int i = 0; i < path.Length; i++)
             {
@@ -438,8 +495,8 @@ namespace Survivor.Generation
                 Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
 
                 // Left and right vertices
-                vertices.Add(path[i] + right * river.riverWidth * 0.5f);
-                vertices.Add(path[i] - right * river.riverWidth * 0.5f);
+                vertices.Add(path[i] + right * scaledRiverWidth * 0.5f);
+                vertices.Add(path[i] - right * scaledRiverWidth * 0.5f);
 
                 // UVs
                 float uvY = i / (float)(path.Length - 1);
@@ -685,8 +742,9 @@ namespace Survivor.Generation
 
         private bool IsValidVegetationPosition(Vector3 position)
         {
-            // Check height (avoid water level)
-            if (position.y < defaultIslandHeight) return false;
+            // Check height (avoid water level), accounting for GameObject scale
+            float scaledDefaultHeight = defaultIslandHeight * transform.localScale.y;
+            if (position.y < scaledDefaultHeight) return false;
 
             // Check distance from camp if camp exists
             if (campPosition.HasValue)
@@ -709,18 +767,19 @@ namespace Survivor.Generation
         public Vector3 GetIslandCenter()
         {
             if (terrain == null) return Vector3.zero;
-            // Return the center of the terrain in world space
-            return terrain.transform.position + new Vector3(terrainSize * 0.5f, 0, terrainSize * 0.5f);
+            // Return the center of the terrain in world space, accounting for scaled positioning
+            float scaledTerrainSize = terrainSize * transform.localScale.x;
+            return transform.position + new Vector3(scaledTerrainSize * 0.5f, 0, scaledTerrainSize * 0.5f);
         }
 
         public float GetIslandSize()
         {
-            return terrainSize;
+            return terrainSize * transform.localScale.x;
         }
 
         public float IslandRadius
         {
-            get { return terrainSize * 0.4f; } // Match the radius used in generation
+            get { return terrainSize * 0.4f * transform.localScale.x; } // Match the radius used in generation, scaled
         }
 
         public Vector3? GetCampPosition()

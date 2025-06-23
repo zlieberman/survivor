@@ -4075,6 +4075,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3526284584872847656, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3526284584872847656, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3526284584872847656, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3526284584872847660, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -4112,6 +4124,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3526284584872847658, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1410496044}
+    - targetCorrespondingSourceObject: {fileID: 3526284584872847658, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1410496049}
   m_SourcePrefab: {fileID: 100100000, guid: 9916dc764ac1e48679531f8b137ff2ec, type: 3}
 --- !u!1 &1235136101
 GameObject:
@@ -5219,6 +5234,37 @@ MonoBehaviour:
   raycastHeight: 1000
   raycastDistance: 2000
   tentPosition: {x: 0, y: 0, z: 0}
+--- !u!114 &1410496049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1410496032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_AgentTypeID: 0
+  m_CollectObjects: 1
+  m_Size: {x: 1000, y: 5, z: 1000}
+  m_Center: {x: -125, y: 10, z: -125}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 23800000, guid: 131031ddc4513488f89248d9f48d1aa4, type: 2}
+  m_BuildHeightMesh: 0
 --- !u!1 &1442527188
 GameObject:
   m_ObjectHideFlags: 3

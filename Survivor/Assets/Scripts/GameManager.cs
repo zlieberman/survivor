@@ -12,6 +12,7 @@ using Survivor.Shared;
 using Survivor.UI;
 using Survivor.Interactables;
 using Survivor.Core.Interaction;
+using Survivor.Core;
 
 public class GameManager : MonoBehaviour
 {
@@ -180,43 +181,6 @@ public class GameManager : MonoBehaviour
             yield return new WaitForSeconds(0.5f);
         }
         Debug.Log("Camp placement complete");
-
-        // Wait for NavMesh to be ready
-        Debug.Log("Waiting for NavMesh to be ready...");
-        float timeout = 20f;
-        float elapsed = 0f;
-        bool navMeshReady = false;
-
-        while (elapsed < timeout && !navMeshReady)
-        {
-            if (campGenerator.CampSpawnPoint != null)
-            {
-                NavMeshHit hit;
-                if (NavMesh.SamplePosition(campGenerator.CampSpawnPoint.position, out hit, 2.0f, NavMesh.AllAreas))
-                {
-                    navMeshReady = true;
-                    Debug.Log($"NavMesh is ready at camp position: {hit.position}");
-                    break;
-                }
-                else
-                {
-                    Debug.Log($"NavMesh not found at position: {campGenerator.CampSpawnPoint.position}, trying again...");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("CampSpawnPoint is null, waiting...");
-            }
-            elapsed += Time.deltaTime;
-            yield return new WaitForSeconds(0.5f);
-        }
-
-        if (!navMeshReady)
-        {
-            Debug.LogError($"NavMesh is not ready at camp position after {timeout} seconds!");
-            // Try to spawn player anyway, as the NavMesh might still work
-            Debug.Log("Attempting to spawn player despite NavMesh warning...");
-        }
 
         // Spawn player
         SpawnPlayer();

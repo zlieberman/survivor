@@ -1,9 +1,9 @@
 using UnityEngine;
 using UnityEngine.AI;
-using Unity.AI.Navigation;
 using System.Collections;
 using Survivor.Shared;
 using Survivor.Interactables;
+using Survivor.Characters;
 
 namespace Survivor.Generation
 {
@@ -43,10 +43,7 @@ namespace Survivor.Generation
         private ProceduralIslandGenerator islandGenerator;
         [SerializeField] private Vector3 tentPosition;
         private LayerMask terrainMask;
-        private Terrain terrain;
-        
-        private NavMeshSurface navMeshSurface;
-        
+        private Terrain terrain;        
         public Vector3 TentPosition 
         { 
             get { return tentPosition; }
@@ -73,18 +70,7 @@ namespace Survivor.Generation
                 return;
             }
 
-            // Set up NavMeshSurface
-            navMeshSurface = GetComponent<NavMeshSurface>();
-            if (navMeshSurface == null)
-            {
-                navMeshSurface = gameObject.AddComponent<NavMeshSurface>();
-                navMeshSurface.collectObjects = CollectObjects.Volume;
-                navMeshSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-                navMeshSurface.layerMask = terrainMask;
-                Debug.Log("Added NavMeshSurface component");
-            }
-
-            // Set up the terrain layer mask to include both the default terrain layer and the "Terrain" layer if it exists
+            // Set up the terrain layer mask FIRST
             terrainMask = 1 << LayerMask.NameToLayer("Default");  // Default layer
             terrainMask |= 1 << 8;  // Built-in terrain layer (Terrain And Water)
             int terrainLayer = LayerMask.NameToLayer("Terrain");
@@ -94,6 +80,26 @@ namespace Survivor.Generation
             }
             
             Debug.Log($"Terrain mask setup complete: {terrainMask}");
+        }
+
+        // This method will be called by ProceduralIslandGenerator when terrain generation is complete
+        private void OnTerrainGenerated()
+        {            
+            // Ensure islandGenerator is set up
+            if (islandGenerator == null)
+            {
+                islandGenerator = GetComponent<ProceduralIslandGenerator>();
+                if (islandGenerator == null)
+                {
+                    Debug.LogError("[CampGenerator] IslandGenerator is still null during OnTerrainGenerated! Trying to find it in scene...");
+                    islandGenerator = FindObjectOfType<ProceduralIslandGenerator>();
+                    if (islandGenerator == null)
+                    {
+                        Debug.LogError("[CampGenerator] Could not find ProceduralIslandGenerator in scene!");
+                        return;
+                    }
+                }
+            }            
         }
 
         public void PlaceCamp()
@@ -161,7 +167,10 @@ namespace Survivor.Generation
                 // Add TentInteractable component
                 tent.AddComponent<TentInteractable>();
                 
-                Debug.Log($"Tent placed at {tentPosition} with TentInteractable component");
+                // Add CampPositionRegistrar component to register camp position with NPCs
+                tent.AddComponent<CampPositionRegistrar>();
+                
+                Debug.Log($"Tent placed at {tentPosition} with TentInteractable and CampPositionRegistrar components");
 
                 // Create and set up the camp spawn point
                 GameObject spawnPointObj = new GameObject("CampSpawnPoint");
@@ -263,18 +272,6 @@ namespace Survivor.Generation
 
                 Debug.Log($"Camp generated successfully at position: {tentPosition}");
                 CampPlaced = true;
-
-                // Bake NavMesh after camp is placed
-                if (navMeshSurface != null)
-                {
-                    Debug.Log("Baking NavMesh...");
-                    navMeshSurface.BuildNavMesh();
-                    Debug.Log("NavMesh baking complete");
-                }
-                else
-                {
-                    Debug.LogError("NavMeshSurface component not found!");
-                }
 
                 // Position the player at the camp
                 SpawnPlayerAtCamp();
@@ -590,6 +587,45 @@ namespace Survivor.Generation
 
             Debug.LogWarning("Could not find suitable well location after 30 attempts!");
             return Vector3.zero;
+        }
+
+        private void NotifyNavMeshLoadingManager()
+        {
+            // Use reflection to notify NavMeshLoadingManager that NavMesh is ready
+            System.Type navMeshManagerType = System.Type.GetType("Survivor.Core.NavMeshLoadingManager, Assembly-CSharp");
+            if (navMeshManagerType != null)
+            {
+                var instanceProperty = navMeshManagerType.GetProperty("Instance");
+                if (instanceProperty != null)
+                {
+                    var instance = instanceProperty.GetValue(null);
+                    if (instance != null)
+                    {
+                        var forceCompleteMethod = navMeshManagerType.GetMethod("ForceComplete");
+                        if (forceCompleteMethod != null)
+                        {
+                            forceCompleteMethod.Invoke(instance, null);
+                            Debug.Log("Notified NavMeshLoadingManager that NavMesh is ready via ForceComplete");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("NavMeshLoadingManager.ForceComplete method not found");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("NavMeshLoadingManager.Instance is null");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("NavMeshLoadingManager.Instance property not found");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("NavMeshLoadingManager type not found");
+            }
         }
     }
 } 
