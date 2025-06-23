@@ -43,8 +43,6 @@ namespace Survivor.Core.Interaction
             {
                 inputField.onValueChanged.AddListener(OnInputValueChanged);
                 inputField.onValidateInput += ValidateInput;
-                inputField.onSelect.AddListener(OnInputFieldSelected);
-                inputField.onDeselect.AddListener(OnInputFieldDeselected);
             }
 
             if (sendButton != null)
@@ -96,7 +94,7 @@ namespace Survivor.Core.Interaction
         private void Update()
         {
             // Handle Escape key to close chat window
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (InputBlocker.GetKeyDown(KeyCode.Escape))
             {
                 CloseChatWindow();
             }
@@ -112,34 +110,10 @@ namespace Survivor.Core.Interaction
                 inputField.DeactivateInputField();
             }
             
-            // Unblock input first
-            if (InputBlocker.Instance != null)
-            {
-                InputBlocker.Instance.UnblockInput();
-            }
-            
-            // End dialogue through the dialogue manager
+            // End dialogue through the dialogue manager (which will handle input unblocking)
             if (dialogueManager != null)
             {
                 dialogueManager.EndDialogue();
-            }
-        }
-
-        private void OnInputFieldSelected(string value)
-        {
-            // Block keyboard input when typing
-            if (InputBlocker.Instance != null)
-            {
-                InputBlocker.Instance.BlockInput();
-            }
-        }
-
-        private void OnInputFieldDeselected(string value)
-        {
-            // Unblock keyboard input when done typing
-            if (InputBlocker.Instance != null)
-            {
-                InputBlocker.Instance.UnblockInput();
             }
         }
 
@@ -235,16 +209,24 @@ namespace Survivor.Core.Interaction
 
         public async void SendMessage()
         {
-            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text) || isWaitingForResponse) return;
+            Debug.Log("[ChatController] SendMessage called");
+            
+            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text) || isWaitingForResponse) 
+            {
+                Debug.Log($"[ChatController] SendMessage early return - inputField: {(inputField != null ? "not null" : "null")}, text: {(inputField != null ? inputField.text : "N/A")}, isWaitingForResponse: {isWaitingForResponse}");
+                return;
+            }
 
             // Check if we're in a valid dialogue session
             if (dialogueManager == null || !dialogueManager.IsDialogueValid)
             {
+                Debug.Log($"[ChatController] Invalid dialogue state - dialogueManager: {(dialogueManager != null ? "not null" : "null")}, IsDialogueValid: {(dialogueManager != null ? dialogueManager.IsDialogueValid.ToString() : "N/A")}");
                 AddMessage("System: You need to be in a dialogue with an NPC to send messages.", Color.red);
                 return;
             }
 
             string message = inputField.text;
+            Debug.Log($"[ChatController] Sending message: {message}");
             inputField.text = "";
             
             // Disable input while waiting for response
@@ -258,7 +240,9 @@ namespace Survivor.Core.Interaction
             try
             {
                 // Generate response from dialogue manager
+                Debug.Log("[ChatController] Calling dialogueManager.GenerateResponse");
                 string response = await dialogueManager.GenerateResponse(message);
+                Debug.Log($"[ChatController] Received response: {response}");
                 AddNPCMessage(response);
             }
             catch (System.Exception ex)
@@ -352,8 +336,6 @@ namespace Survivor.Core.Interaction
             {
                 inputField.onValueChanged.RemoveListener(OnInputValueChanged);
                 inputField.onValidateInput -= ValidateInput;
-                inputField.onSelect.RemoveListener(OnInputFieldSelected);
-                inputField.onDeselect.RemoveListener(OnInputFieldDeselected);
             }
 
             if (sendButton != null)
@@ -364,12 +346,6 @@ namespace Survivor.Core.Interaction
             if (closeButton != null)
             {
                 closeButton.onClick.RemoveListener(CloseChatWindow);
-            }
-
-            // Make sure to unblock input when destroyed
-            if (InputBlocker.Instance != null)
-            {
-                InputBlocker.Instance.UnblockInput();
             }
             
             ClearChat();

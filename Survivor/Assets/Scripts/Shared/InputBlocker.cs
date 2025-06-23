@@ -1,28 +1,28 @@
 using UnityEngine;
-using StarterAssets;
 
 namespace Survivor.Shared
 {
     /// <summary>
-    /// Global input blocker that can disable keyboard input for movement and interactions
-    /// when the player is typing in UI elements like chat input fields.
+    /// Simple input blocker that disables movement components and blocks all input when dialogue is active
     /// </summary>
     public class InputBlocker : MonoBehaviour
     {
         private static InputBlocker instance;
         public static InputBlocker Instance => instance;
 
-        [Header("Input Components")]
-        [SerializeField] private StarterAssetsInputs starterAssetsInputs;
-        [SerializeField] private ThirdPersonController thirdPersonController;
-        
-        private bool wasInputEnabled = true;
-        private bool wasThirdPersonControllerEnabled = true;
-        private bool isInputBlocked = false;
+        private MonoBehaviour starterAssetsInputs;
+        private MonoBehaviour thirdPersonController;
+        private bool wasStarterAssetsEnabled = true;
+        private bool wasThirdPersonEnabled = true;
+        private bool isBlocking = false;
 
-        // Store references to other input-handling scripts
-        private MonoBehaviour[] inputHandlingScripts;
-        private bool[] wasScriptEnabled;
+        // Keys that should always be allowed even when input is blocked
+        private readonly KeyCode[] allowedKeys = {
+            KeyCode.Escape,    // Close dialogue
+            KeyCode.Tab,       // UI navigation
+            KeyCode.Return,    // Send message
+            KeyCode.KeypadEnter // Numpad enter
+        };
 
         private void Awake()
         {
@@ -39,268 +39,236 @@ namespace Survivor.Shared
 
         private void Start()
         {
-            // Try to find input components if not assigned
-            RefreshInputComponents();
+            // Find movement components
+            FindMovementComponents();
+        }
+
+        private void FindMovementComponents()
+        {
+            Debug.Log("[InputBlocker] Finding movement components...");
             
-            // Ensure arrays are initialized
-            EnsureArraysInitialized();
-        }
-
-        /// <summary>
-        /// Ensure the input handling arrays are properly initialized
-        /// </summary>
-        private void EnsureArraysInitialized()
-        {
-            if (inputHandlingScripts == null)
+            // Find player GameObject
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null)
             {
-                inputHandlingScripts = new MonoBehaviour[0];
+                player = GameObject.Find("Player");
             }
-            if (wasScriptEnabled == null)
-            {
-                wasScriptEnabled = new bool[0];
-            }
-        }
 
-        /// <summary>
-        /// Refresh input components - useful if they're created after this script
-        /// </summary>
-        public void RefreshInputComponents()
-        {
-            if (starterAssetsInputs == null || thirdPersonController == null)
+            if (player != null)
             {
-                GameObject player = GameObject.FindGameObjectWithTag("Player");
-                if (player == null)
-                {
-                    player = GameObject.Find("Player");
-                }
+                Debug.Log($"[InputBlocker] Found player: {player.name}");
                 
-                if (player != null)
+                // List all components on player for debugging
+                var allComponents = player.GetComponents<MonoBehaviour>();
+                Debug.Log($"[InputBlocker] Player has {allComponents.Length} MonoBehaviour components:");
+                foreach (var comp in allComponents)
                 {
-                    if (starterAssetsInputs == null)
+                    Debug.Log($"[InputBlocker] - {comp.GetType().Name}: enabled = {comp.enabled}");
+                }
+
+                // Find StarterAssetsInputs component by type name
+                foreach (var comp in allComponents)
+                {
+                    if (comp.GetType().Name == "StarterAssetsInputs")
                     {
-                        starterAssetsInputs = player.GetComponent<StarterAssetsInputs>();
-                    }
-                    if (thirdPersonController == null)
-                    {
-                        thirdPersonController = player.GetComponent<ThirdPersonController>();
-                    }
-                    
-                    if (starterAssetsInputs != null || thirdPersonController != null)
-                    {
-                        Debug.Log("[InputBlocker] Found input components on player");
+                        starterAssetsInputs = comp;
+                        wasStarterAssetsEnabled = comp.enabled;
+                        Debug.Log($"[InputBlocker] Found StarterAssetsInputs: enabled = {comp.enabled}");
+                        break;
                     }
                 }
-                else
+
+                // Find ThirdPersonController component by type name
+                foreach (var comp in allComponents)
                 {
-                    Debug.LogWarning("[InputBlocker] Player not found - input blocking may not work");
+                    if (comp.GetType().Name == "ThirdPersonController")
+                    {
+                        thirdPersonController = comp;
+                        wasThirdPersonEnabled = comp.enabled;
+                        Debug.Log($"[InputBlocker] Found ThirdPersonController: enabled = {comp.enabled}");
+                        break;
+                    }
+                }
+
+                if (starterAssetsInputs == null)
+                {
+                    Debug.LogWarning("[InputBlocker] StarterAssetsInputs component not found on player");
+                }
+                if (thirdPersonController == null)
+                {
+                    Debug.LogWarning("[InputBlocker] ThirdPersonController component not found on player");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[InputBlocker] Player GameObject not found");
+            }
+        }
+
+        private void Update()
+        {
+            if (starterAssetsInputs != null)
+            {
+                if (isBlocking && starterAssetsInputs.enabled)
+                {
+                    // Should block input, disable StarterAssetsInputs
+                    wasStarterAssetsEnabled = starterAssetsInputs.enabled;
+                    starterAssetsInputs.enabled = false;
+                    Debug.Log("[InputBlocker] DISABLED StarterAssetsInputs - input blocking active");
+                }
+                else if (!isBlocking && !starterAssetsInputs.enabled && wasStarterAssetsEnabled)
+                {
+                    // Should not block input, re-enable StarterAssetsInputs
+                    starterAssetsInputs.enabled = true;
+                    Debug.Log("[InputBlocker] RE-ENABLED StarterAssetsInputs - input blocking ended");
+                }
+            }
+
+            if (thirdPersonController != null)
+            {
+                if (isBlocking && thirdPersonController.enabled)
+                {
+                    // Should block input, disable ThirdPersonController
+                    wasThirdPersonEnabled = thirdPersonController.enabled;
+                    thirdPersonController.enabled = false;
+                    Debug.Log("[InputBlocker] DISABLED ThirdPersonController - input blocking active");
+                }
+                else if (!isBlocking && !thirdPersonController.enabled && wasThirdPersonEnabled)
+                {
+                    // Should not block input, re-enable ThirdPersonController
+                    thirdPersonController.enabled = true;
+                    Debug.Log("[InputBlocker] RE-ENABLED ThirdPersonController - input blocking ended");
+                }
+            }
+            else
+            {
+                // Try to find components again if they're null
+                if (Time.frameCount % 60 == 0) // Try every 60 frames
+                {
+                    FindMovementComponents();
                 }
             }
         }
 
         /// <summary>
-        /// Find all scripts that handle keyboard input
+        /// Check if a key is allowed even when input is blocked
         /// </summary>
-        private void FindInputHandlingScripts()
+        private bool IsKeyAllowed(KeyCode key)
         {
-            // Find scripts that commonly handle keyboard input
-            var allScripts = FindObjectsOfType<MonoBehaviour>();
-            var inputScripts = new System.Collections.Generic.List<MonoBehaviour>();
-
-            foreach (var script in allScripts)
+            foreach (var allowedKey in allowedKeys)
             {
-                if (script != null && IsInputHandlingScript(script))
-                {
-                    inputScripts.Add(script);
-                    Debug.Log($"[InputBlocker] Found input handling script: {script.GetType().Name}");
-                }
-            }
-
-            inputHandlingScripts = inputScripts.ToArray();
-            wasScriptEnabled = new bool[inputHandlingScripts.Length];
-            
-            Debug.Log($"[InputBlocker] Found {inputHandlingScripts.Length} input handling scripts");
-        }
-
-        /// <summary>
-        /// Check if a script is likely to handle keyboard input
-        /// </summary>
-        private bool IsInputHandlingScript(MonoBehaviour script)
-        {
-            if (script == null) return false;
-
-            string scriptName = script.GetType().Name.ToLower();
-            
-            // Common input handling script names
-            string[] inputScriptNames = {
-                "tribeinfomenucontroller",
-                "inventorypanel", 
-                "playerinteractionmanager",
-                "playerinteractionhandler",
-                "characterinteractionmanager",
-                "interactionmanager",
-                "dialogueinteractable",
-                "baseinteractable",
-                "firewood",
-                "coconut",
-                "banana",
-                "campfireinteractable"
-            };
-
-            foreach (string name in inputScriptNames)
-            {
-                if (scriptName.Contains(name))
+                if (key == allowedKey)
                 {
                     return true;
                 }
             }
-
             return false;
-        }
-
-        /// <summary>
-        /// Block all keyboard input for movement and interactions
-        /// </summary>
-        public void BlockInput()
-        {
-            if (isInputBlocked) return;
-
-            isInputBlocked = true;
-            
-            // Find input handling scripts
-            FindInputHandlingScripts();
-            
-            // Disable Starter Assets components
-            if (starterAssetsInputs != null)
-            {
-                wasInputEnabled = starterAssetsInputs.enabled;
-                starterAssetsInputs.enabled = false;
-            }
-            else
-            {
-                Debug.LogWarning("[InputBlocker] StarterAssetsInputs not found - cannot block movement input");
-            }
-            
-            if (thirdPersonController != null)
-            {
-                wasThirdPersonControllerEnabled = thirdPersonController.enabled;
-                thirdPersonController.enabled = false;
-            }
-            else
-            {
-                Debug.LogWarning("[InputBlocker] ThirdPersonController not found - cannot block movement input");
-            }
-
-            // Disable other input handling scripts (with null checks)
-            if (inputHandlingScripts != null && wasScriptEnabled != null)
-            {
-                for (int i = 0; i < inputHandlingScripts.Length && i < wasScriptEnabled.Length; i++)
-                {
-                    if (inputHandlingScripts[i] != null)
-                    {
-                        wasScriptEnabled[i] = inputHandlingScripts[i].enabled;
-                        inputHandlingScripts[i].enabled = false;
-                        Debug.Log($"[InputBlocker] Disabled input script: {inputHandlingScripts[i].GetType().Name}");
-                    }
-                }
-            }
-
-            Debug.Log($"[InputBlocker] Keyboard input blocked - disabled {(inputHandlingScripts != null ? inputHandlingScripts.Length : 0)} input scripts");
-        }
-
-        /// <summary>
-        /// Unblock keyboard input and restore previous state
-        /// </summary>
-        public void UnblockInput()
-        {
-            if (!isInputBlocked) return;
-
-            isInputBlocked = false;
-            
-            // Re-enable Starter Assets components
-            if (starterAssetsInputs != null && wasInputEnabled)
-            {
-                starterAssetsInputs.enabled = true;
-            }
-            
-            if (thirdPersonController != null && wasThirdPersonControllerEnabled)
-            {
-                thirdPersonController.enabled = true;
-            }
-
-            // Re-enable other input handling scripts (with null checks)
-            if (inputHandlingScripts != null && wasScriptEnabled != null)
-            {
-                for (int i = 0; i < inputHandlingScripts.Length && i < wasScriptEnabled.Length; i++)
-                {
-                    if (inputHandlingScripts[i] != null && wasScriptEnabled[i])
-                    {
-                        inputHandlingScripts[i].enabled = true;
-                        Debug.Log($"[InputBlocker] Re-enabled input script: {inputHandlingScripts[i].GetType().Name}");
-                    }
-                }
-            }
-
-            Debug.Log("[InputBlocker] Keyboard input unblocked");
         }
 
         /// <summary>
         /// Check if input is currently blocked
         /// </summary>
-        public bool IsInputBlocked => isInputBlocked;
+        public static bool IsInputBlocked => instance != null && instance.isBlocking;
 
         /// <summary>
-        /// Force enable input components (useful for cleanup)
+        /// Start blocking input
         /// </summary>
-        public void ForceEnableInput()
+        public void BlockInput()
         {
-            try
-            {
-                isInputBlocked = false;
-                
-                if (starterAssetsInputs != null)
-                {
-                    starterAssetsInputs.enabled = true;
-                }
-                
-                if (thirdPersonController != null)
-                {
-                    thirdPersonController.enabled = true;
-                }
+            isBlocking = true;
+            Debug.Log("[InputBlocker] Input blocking enabled");
+        }
 
-                // Force enable all input scripts (with comprehensive null checks)
-                if (inputHandlingScripts != null && inputHandlingScripts.Length > 0)
-                {
-                    for (int i = 0; i < inputHandlingScripts.Length; i++)
-                    {
-                        if (inputHandlingScripts[i] != null)
-                        {
-                            inputHandlingScripts[i].enabled = true;
-                        }
-                    }
-                }
-                
-                Debug.Log("[InputBlocker] Force enable input completed successfully");
-            }
-            catch (System.Exception e)
+        /// <summary>
+        /// Stop blocking input
+        /// </summary>
+        public void UnblockInput()
+        {
+            isBlocking = false;
+            Debug.Log("[InputBlocker] Input blocking disabled");
+        }
+
+        /// <summary>
+        /// Force enable all movement components (useful for cleanup)
+        /// </summary>
+        public void ForceEnableMovement()
+        {
+            if (starterAssetsInputs != null)
             {
-                Debug.LogWarning($"[InputBlocker] Error in ForceEnableInput: {e.Message}");
+                starterAssetsInputs.enabled = true;
             }
+            if (thirdPersonController != null)
+            {
+                thirdPersonController.enabled = true;
+            }
+        }
+
+        // Static input methods that other scripts should use instead of Input.GetKeyDown()
+        
+        /// <summary>
+        /// Get key down state - blocks all keys except allowed ones when input is blocked
+        /// </summary>
+        public static bool GetKeyDown(KeyCode key)
+        {
+            if (instance != null && instance.isBlocking)
+            {
+                return instance.IsKeyAllowed(key) && Input.GetKeyDown(key);
+            }
+            return Input.GetKeyDown(key);
+        }
+
+        /// <summary>
+        /// Get key state - blocks all keys except allowed ones when input is blocked
+        /// </summary>
+        public static bool GetKey(KeyCode key)
+        {
+            if (instance != null && instance.isBlocking)
+            {
+                return instance.IsKeyAllowed(key);
+            }
+            return Input.GetKey(key);
+        }
+
+        /// <summary>
+        /// Get key up state - blocks all keys except allowed ones when input is blocked
+        /// </summary>
+        public static bool GetKeyUp(KeyCode key)
+        {
+            if (instance != null && instance.isBlocking)
+            {
+                return instance.IsKeyAllowed(key) && Input.GetKeyUp(key);
+            }
+            return Input.GetKeyUp(key);
+        }
+
+        /// <summary>
+        /// Get axis value - returns 0 when input is blocked
+        /// </summary>
+        public static float GetAxis(string axisName)
+        {
+            if (instance != null && instance.isBlocking)
+            {
+                return 0f;
+            }
+            return Input.GetAxis(axisName);
+        }
+
+        /// <summary>
+        /// Get axis raw value - returns 0 when input is blocked
+        /// </summary>
+        public static float GetAxisRaw(string axisName)
+        {
+            if (instance != null && instance.isBlocking)
+            {
+                return 0f;
+            }
+            return Input.GetAxisRaw(axisName);
         }
 
         private void OnDestroy()
         {
-            try
-            {
-                // Make sure to re-enable input when destroyed
-                if (isInputBlocked)
-                {
-                    ForceEnableInput();
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"[InputBlocker] Error in OnDestroy: {e.Message}");
-            }
+            // Make sure to re-enable movement components when destroyed
+            ForceEnableMovement();
         }
     }
 } 

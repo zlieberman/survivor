@@ -76,7 +76,7 @@ namespace Survivor.Items
 
         private void HandleInteraction()
         {
-            if (isPlayerInRange && Input.GetKeyDown(KeyCode.E))
+            if (isPlayerInRange && InputBlocker.GetKeyDown(KeyCode.E))
             {
                 CollectBanana();
             }

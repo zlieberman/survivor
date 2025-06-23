@@ -32,9 +32,10 @@ namespace Survivor.Interactables
             if (other.CompareTag("Player"))
             {
                 Debug.Log("[WaterWellInteractable] Player entered interaction range");
-                playerStats = other.GetComponent<CharacterStats>();
-                if (playerStats != null)
+                var character = other.GetComponent<Character>();
+                if (character != null)
                 {
+                    playerStats = character.Stats;
                     Debug.Log("[WaterWellInteractable] Found player stats component");
                     isPlayerInRange = true;
                     OnInteractionEnter();

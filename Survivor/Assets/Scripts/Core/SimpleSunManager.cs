@@ -115,6 +115,9 @@ namespace Survivor.Core
                 startHour = timeManager.StartHour;
                 startMinute = timeManager.StartMinute;
                 Debug.Log($"[SimpleSunManager] Got time settings from TimeManager - RealTimePerGameHour: {realTimePerGameHour}s, Start: {startHour:D2}:{startMinute:D2}");
+                
+                // Subscribe to time advancement events
+                timeManager.onTimeAdvanced.AddListener(OnTimeAdvanced);
             }
             
             InitializeSunSystem();
@@ -124,7 +127,21 @@ namespace Survivor.Core
         private void OnTimeProviderUnregistered()
         {
             Debug.Log("[SimpleSunManager] Time provider unregistered");
+            
+            // Unsubscribe from time advancement events
+            if (GameTimeService.TimeProvider is TimeManager timeManager)
+            {
+                timeManager.onTimeAdvanced.RemoveListener(OnTimeAdvanced);
+            }
+            
             isInitialized = false;
+        }
+        
+        private void OnTimeAdvanced(float hours)
+        {
+            Debug.Log($"[SimpleSunManager] Time advanced by {hours} hours - updating sun position");
+            // Force an immediate update of the sun position
+            UpdateSunPosition();
         }
         
         private void InitializeSunSystem()
@@ -195,19 +212,20 @@ namespace Survivor.Core
         
         private void Update()
         {
-            if (isInitialized)
+            if (!isInitialized) return;
+            
+            // Use the TimeManager's ElapsedRealTime instead of our own elapsedTime
+            float currentElapsedTime = 0f;
+            if (GameTimeService.HasTimeProvider)
             {
-                elapsedTime += Time.deltaTime;
-                UpdateSunPosition();
+                currentElapsedTime = GameTimeService.TimeProvider.ElapsedRealTime;
             }
-            else
+            
+            // Only update if the elapsed time has changed significantly
+            if (Mathf.Abs(currentElapsedTime - elapsedTime) > 0.1f)
             {
-                // Debug: Check if we should be initialized but aren't
-                if (GameTimeService.HasTimeProvider && !isInitialized)
-                {
-                    Debug.LogWarning("[SimpleSunManager] Time provider available but not initialized - forcing initialization");
-                    OnTimeProviderRegistered(GameTimeService.TimeProvider);
-                }
+                elapsedTime = currentElapsedTime;
+                UpdateSunPosition();
             }
         }
         
@@ -219,7 +237,7 @@ namespace Survivor.Core
             
             // Handle 24-hour cycle - wrap time around midnight
             currentTimeInHours = currentTimeInHours % 24f;
-            
+                        
             // Calculate sun position based on actual sunrise/sunset times
             // Sun rises at sunriseHour (5 AM) and sets at sunsetHour (8 PM)
             
@@ -555,7 +573,6 @@ namespace Survivor.Core
         {
             Debug.Log("=== SimpleSunManager Status ===");
             Debug.Log($"[SimpleSunManager] Initialized: {isInitialized}");
-            Debug.Log($"[SimpleSunManager] Elapsed time: {elapsedTime:F1}s");
             
             if (isInitialized)
             {
@@ -783,6 +800,21 @@ namespace Survivor.Core
             }
             
             Debug.Log("=== End Transition Test ===");
+        }
+        
+        // Public method to force an immediate sun position update
+        [ContextMenu("Force Sun Update")]
+        public void ForceSunUpdate()
+        {
+            Debug.Log("[SimpleSunManager] Force sun update called");
+            if (isInitialized)
+            {
+                UpdateSunPosition();
+            }
+            else
+            {
+                Debug.LogWarning("[SimpleSunManager] Cannot force update - not initialized");
+            }
         }
     }
 } 

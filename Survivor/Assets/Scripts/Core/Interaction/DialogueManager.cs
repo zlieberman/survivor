@@ -189,19 +189,33 @@ namespace Survivor.Core.Interaction
             // Wire up send button to manager's handler
             if (dialogueUI != null && dialogueUI.SendButton != null)
             {
-                dialogueUI.SendButton.onClick.RemoveAllListeners();
-                dialogueUI.SendButton.onClick.AddListener(OnSendButtonClicked);
+                // Remove the old wiring since we're now using events
+                // dialogueUI.SendButton.onClick.RemoveAllListeners();
+                // dialogueUI.SendButton.onClick.AddListener(OnSendButtonClicked);
             }
 
             // Subscribe to dialogue UI close event
             if (dialogueUI != null)
             {
                 dialogueUI.OnDialogueClosed += EndDialogue;
+                dialogueUI.OnMessageSent += OnDialogueUIMessageSent;
             }
         }
 
         private void Update()
         {
+            // If we're already in dialogue, don't check for NPC proximity
+            if (isInDialogue)
+            {
+                // Only handle input for ending dialogue (Escape key)
+                if (InputBlocker.GetKeyDown(KeyCode.Escape))
+                {
+                    Debug.Log("[DialogueManager] Escape key pressed during dialogue, ending dialogue");
+                    EndDialogue();
+                }
+                return; // Exit early to prevent proximity checks during active dialogue
+            }
+
             // Find all NPCCharacter instances in the scene
             var npcs = GameObject.FindObjectsOfType<Survivor.Characters.NPCCharacter>();
             Survivor.Characters.NPCCharacter closestNPC = null;
@@ -240,14 +254,14 @@ namespace Survivor.Core.Interaction
             }
 
             // Handle input for starting dialogue
-            if (isInRange && Input.GetKeyDown(interactKey) && currentInteractable != null && !isInDialogue)
+            if (isInRange && InputBlocker.GetKeyDown(interactKey) && currentInteractable != null && !isInDialogue)
             {
                 Debug.Log($"[DialogueManager] Starting dialogue with {currentInteractable.GetDisplayName()}");
                 StartDialogue(currentInteractable.GetDisplayName(), "Starting conversation...");
             }
             
             // Debug logging for E key presses
-            if (Input.GetKeyDown(interactKey))
+            if (InputBlocker.GetKeyDown(interactKey))
             {
                 Debug.Log($"[DialogueManager] E key pressed - isInRange: {isInRange}, currentInteractable: {(currentInteractable != null ? currentInteractable.GetDisplayName() : "null")}, isInDialogue: {isInDialogue}");
             }
@@ -293,7 +307,7 @@ namespace Survivor.Core.Interaction
             
             if (!IsDialogueValid)
             {
-                Debug.LogError("[DialogueManager] GenerateResponse called with invalid dialogue state");
+                Debug.LogError($"[DialogueManager] GenerateResponse called with invalid dialogue state - isInDialogue: {isInDialogue}, currentInteractable: {(currentInteractable != null ? currentInteractable.GetDisplayName() : "null")}");
                 return GetFallbackResponse();
             }
 
@@ -302,6 +316,10 @@ namespace Survivor.Core.Interaction
                 Debug.LogWarning("[DialogueManager] Cannot generate AI response: OpenAI API key is not set! Using fallback response.");
                 return GetFallbackResponse();
             }
+
+            // Store the current interactable to ensure it doesn't change during the API call
+            var originalInteractable = currentInteractable;
+            var originalNpcName = originalInteractable?.GetDisplayName();
 
             // Create new cancellation token source for this dialogue
             currentDialogueCts?.Cancel();
@@ -312,13 +330,14 @@ namespace Survivor.Core.Interaction
             {
                 Debug.Log("[DialogueManager] Starting API call...");
                 
-                if (!IsDialogueValid)
+                // Check if dialogue state is still valid
+                if (!IsDialogueValid || currentInteractable != originalInteractable)
                 {
-                    Debug.Log("[DialogueManager] Dialogue ended while waiting for response");
+                    Debug.LogWarning($"[DialogueManager] Dialogue state changed during API call - isInDialogue: {isInDialogue}, currentInteractable: {(currentInteractable != null ? currentInteractable.GetDisplayName() : "null")}, originalInteractable: {(originalInteractable != null ? originalInteractable.GetDisplayName() : "null")}");
                     return "Dialogue ended.";
                 }
 
-                string npcName = currentInteractable.GetDisplayName();
+                string npcName = originalNpcName;
                 Debug.Log($"[DialogueManager] Generating response for {npcName}: {playerMessage}");
                 
                 try
@@ -326,10 +345,11 @@ namespace Survivor.Core.Interaction
                     // Get or create chat history for this NPC
                     if (!npcChatHistories.ContainsKey(npcName))
                     {
+                        Debug.Log($"[DialogueManager] Creating new chat history for {npcName}");
                         npcChatHistories[npcName] = new List<ChatMessage>();
                         
                         // Get tribe information
-                        string tribeName = currentInteractable.TribeName;
+                        string tribeName = originalInteractable.TribeName;
                         var tribeManager = FindObjectOfType<TribeManager>();
                         var player = tribeManager?.GetPlayer();
                         var tribeMembers = tribeManager?.GetTribeMembers(tribeName) ?? new List<Character>();
@@ -367,7 +387,7 @@ namespace Survivor.Core.Interaction
                             tribeContext += "Other members of your tribe are: ";
                             foreach (var member in tribeMembers)
                             {
-                                if (member != player && member != currentInteractable)
+                                if (member != player && member != originalInteractable)
                                 {
                                     tribeContext += $"{member.CharacterName} (";
                                     tribeContext += $"Perception: {member.Stats.perception}, ";
@@ -394,23 +414,23 @@ namespace Survivor.Core.Interaction
                         
                         // Add your own stats
                         tribeContext += $"Your stats are: ";
-                        tribeContext += $"Perception: {currentInteractable.Stats.perception}, ";
-                        tribeContext += $"Deception: {currentInteractable.Stats.deception}, ";
-                        tribeContext += $"Persuasion: {currentInteractable.Stats.persuasion}, ";
-                        tribeContext += $"Puzzle Solving: {currentInteractable.Stats.puzzleSolving}, ";
-                        tribeContext += $"Swimming: {currentInteractable.Stats.swimming}, ";
-                        tribeContext += $"Speed: {currentInteractable.Stats.speed}, ";
-                        tribeContext += $"Strength: {currentInteractable.Stats.strength}, ";
-                        tribeContext += $"Agility: {currentInteractable.Stats.agility}, ";
-                        tribeContext += $"Intelligence: {currentInteractable.Stats.intelligence}, ";
-                        tribeContext += $"Stamina: {currentInteractable.Stats.stamina}, ";
-                        tribeContext += $"Charisma: {currentInteractable.Stats.charisma}, ";
-                        tribeContext += $"Honesty: {currentInteractable.Stats.honesty}, ";
-                        tribeContext += $"Trust: {currentInteractable.Stats.trust}, ";
-                        tribeContext += $"Honor: {currentInteractable.Stats.honor}. ";
-                        tribeContext += $"Energy: {currentInteractable.Stats.energy}, ";
-                        tribeContext += $"Hunger: {currentInteractable.Stats.hunger}, ";
-                        tribeContext += $"Thirst: {currentInteractable.Stats.thirst}. ";
+                        tribeContext += $"Perception: {originalInteractable.Stats.perception}, ";
+                        tribeContext += $"Deception: {originalInteractable.Stats.deception}, ";
+                        tribeContext += $"Persuasion: {originalInteractable.Stats.persuasion}, ";
+                        tribeContext += $"Puzzle Solving: {originalInteractable.Stats.puzzleSolving}, ";
+                        tribeContext += $"Swimming: {originalInteractable.Stats.swimming}, ";
+                        tribeContext += $"Speed: {originalInteractable.Stats.speed}, ";
+                        tribeContext += $"Strength: {originalInteractable.Stats.strength}, ";
+                        tribeContext += $"Agility: {originalInteractable.Stats.agility}, ";
+                        tribeContext += $"Intelligence: {originalInteractable.Stats.intelligence}, ";
+                        tribeContext += $"Stamina: {originalInteractable.Stats.stamina}, ";
+                        tribeContext += $"Charisma: {originalInteractable.Stats.charisma}, ";
+                        tribeContext += $"Honesty: {originalInteractable.Stats.honesty}, ";
+                        tribeContext += $"Trust: {originalInteractable.Stats.trust}, ";
+                        tribeContext += $"Honor: {originalInteractable.Stats.honor}. ";
+                        tribeContext += $"Energy: {originalInteractable.Stats.energy}, ";
+                        tribeContext += $"Hunger: {originalInteractable.Stats.hunger}, ";
+                        tribeContext += $"Thirst: {originalInteractable.Stats.thirst}. ";
                         
                         tribeContext += "Respond naturally and concisely to the player's messages, taking into account your tribe members' stats and your own stats.";
                         
@@ -421,6 +441,10 @@ namespace Survivor.Core.Interaction
                             content = tribeContext
                         });
                     }
+                    else
+                    {
+                        Debug.Log($"[DialogueManager] Using existing chat history for {npcName} with {npcChatHistories[npcName].Count} messages");
+                    }
 
                     // Add user message to history
                     npcChatHistories[npcName].Add(new ChatMessage 
@@ -428,6 +452,8 @@ namespace Survivor.Core.Interaction
                         role = "user", 
                         content = playerMessage 
                     });
+
+                    Debug.Log($"[DialogueManager] Chat history now has {npcChatHistories[npcName].Count} messages");
 
                     var requestBody = new ChatCompletionRequest
                     {
@@ -448,13 +474,13 @@ namespace Survivor.Core.Interaction
                     LogRequestDetails(request, jsonRequest);
 
                     // Send API request with timeout
-                    var timeoutTask = Task.Delay(5000, ct); // 5 seconds
+                    var timeoutTask = Task.Delay(20000, ct); // 20 seconds
                     var responseTask = httpClient.SendAsync(request, ct);
                     var completedTask = await Task.WhenAny(responseTask, timeoutTask);
 
                     if (completedTask == timeoutTask)
                     {
-                        Debug.LogWarning("[DialogueManager] API call timed out after 5 seconds. Using fallback response.");
+                        Debug.LogWarning("[DialogueManager] API call timed out after 20 seconds. Using fallback response.");
                         return GetFallbackResponse();
                     }
 
@@ -544,6 +570,12 @@ namespace Survivor.Core.Interaction
             Debug.Log($"[DialogueManager] Starting dialogue with {npcName}");
             isInDialogue = true;
 
+            // Block input
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.BlockInput();
+            }
+
             // Set current NPC in chat controller
             if (chatController != null)
             {
@@ -564,12 +596,6 @@ namespace Survivor.Core.Interaction
             // Show cursor and unlock it
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-
-            // Ensure InputBlocker has latest components
-            if (InputBlocker.Instance != null)
-            {
-                InputBlocker.Instance.RefreshInputComponents();
-            }
 
             // Notify the NPC that dialogue has started
             if (currentInteractable != null)
@@ -592,6 +618,12 @@ namespace Survivor.Core.Interaction
 
             Debug.Log("[DialogueManager] Ending dialogue");
             isInDialogue = false;
+
+            // Unblock input
+            if (InputBlocker.Instance != null)
+            {
+                InputBlocker.Instance.UnblockInput();
+            }
 
             // Cancel any ongoing dialogue generation
             currentDialogueCts?.Cancel();
@@ -637,16 +669,46 @@ namespace Survivor.Core.Interaction
             }
         }
 
-        private async void OnSendButtonClicked()
+        private void OnDialogueUIMessageSent(string message)
         {
-            if (dialogueUI == null) return;
-            var inputField = dialogueUI.GetType().GetField("playerInput", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(dialogueUI) as TMP_InputField;
-            if (inputField == null || string.IsNullOrWhiteSpace(inputField.text)) return;
-            string playerMessage = inputField.text;
-            inputField.text = string.Empty;
-            dialogueUI.SetDialogueLine("..."); // Show loading or similar
-            string response = await GenerateResponse(playerMessage);
-            dialogueUI.SetDialogueLine(response);
+            Debug.Log($"[DialogueManager] OnDialogueUIMessageSent called with message: {message}");
+            
+            // Handle the message by sending it through the ChatController
+            if (chatController != null)
+            {
+                Debug.Log("[DialogueManager] ChatController found, forwarding message");
+                
+                // Check if ChatController is already waiting for a response
+                var isWaitingField = chatController.GetType().GetField("isWaitingForResponse", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (isWaitingField != null)
+                {
+                    bool isWaiting = (bool)isWaitingField.GetValue(chatController);
+                    if (isWaiting)
+                    {
+                        Debug.LogWarning("[DialogueManager] ChatController is already waiting for a response, ignoring this message");
+                        return;
+                    }
+                }
+                
+                // Set the input field text in ChatController and trigger its SendMessage
+                var chatInputField = chatController.GetType().GetField("inputField", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(chatController) as TMP_InputField;
+                if (chatInputField != null)
+                {
+                    Debug.Log("[DialogueManager] Setting ChatController input field text");
+                    chatInputField.text = message;
+                    // Call the ChatController's SendMessage method
+                    Debug.Log("[DialogueManager] Calling ChatController.SendMessage()");
+                    chatController.SendMessage();
+                }
+                else
+                {
+                    Debug.LogError("[DialogueManager] Could not access ChatController input field!");
+                }
+            }
+            else
+            {
+                Debug.LogError("[DialogueManager] ChatController is null! Cannot send message.");
+            }
         }
 
         private void OnDestroy()
@@ -660,6 +722,7 @@ namespace Survivor.Core.Interaction
             if (dialogueUI != null)
             {
                 dialogueUI.OnDialogueClosed -= EndDialogue;
+                dialogueUI.OnMessageSent -= OnDialogueUIMessageSent;
             }
             
             currentDialogueCts?.Dispose();

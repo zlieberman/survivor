@@ -20,6 +20,7 @@ namespace Survivor.UI
         
         private System.Action<float> onSleepCallback;
         private System.Action onCancelCallback;
+        private bool isProcessing = false; // Flag to prevent multiple button clicks
 
         private void Start()
         {
@@ -84,23 +85,118 @@ namespace Survivor.UI
 
         private void OnSleepButtonClicked()
         {
+            // Prevent multiple clicks
+            if (isProcessing)
+            {
+                Debug.Log("[RestPanelUI] Already processing sleep request, ignoring duplicate click");
+                return;
+            }
+            
+            isProcessing = true;
+            Debug.Log("[RestPanelUI] Sleep button clicked, processing rest request");
+            
+            // Disable the button to prevent further clicks
+            if (sleepButton != null)
+            {
+                sleepButton.interactable = false;
+            }
+            
             float restHours = restHoursSlider != null ? restHoursSlider.value : 1f;
             onSleepCallback?.Invoke(restHours);
+            
+            // Note: Processing flag will be reset when Show() is called next time
+            // This prevents issues with inactive GameObjects and coroutines
         }
 
         private void OnCancelButtonClicked()
         {
+            // Prevent multiple clicks
+            if (isProcessing)
+            {
+                Debug.Log("[RestPanelUI] Already processing request, ignoring duplicate cancel click");
+                return;
+            }
+            
+            isProcessing = true;
+            Debug.Log("[RestPanelUI] Cancel button clicked");
+            
+            // Disable buttons to prevent further clicks
+            if (sleepButton != null)
+            {
+                sleepButton.interactable = false;
+            }
+            if (cancelButton != null)
+            {
+                cancelButton.interactable = false;
+            }
+            
             onCancelCallback?.Invoke();
+            
+            // Note: Processing flag will be reset when Show() is called next time
+            // This prevents issues with inactive GameObjects and coroutines
         }
 
         public void Show()
         {
+            Debug.Log("[RestPanelUI] Show() called");
+            
+            // Reset processing state
+            isProcessing = false;
+            
+            // Ensure buttons are enabled
+            if (sleepButton != null)
+            {
+                sleepButton.interactable = true;
+            }
+            if (cancelButton != null)
+            {
+                cancelButton.interactable = true;
+            }
+            
+            // Activate the parent GameObject (this component's GameObject)
             gameObject.SetActive(true);
+            Debug.Log($"[RestPanelUI] Parent GameObject '{gameObject.name}' activated: {gameObject.activeInHierarchy}");
+            
+            // Also activate the child RestPanel if it exists
+            Transform restPanelChild = transform.Find("RestPanel");
+            if (restPanelChild != null)
+            {
+                restPanelChild.gameObject.SetActive(true);
+                Debug.Log($"[RestPanelUI] Child RestPanel '{restPanelChild.name}' activated: {restPanelChild.gameObject.activeInHierarchy}");
+            }
+            else
+            {
+                Debug.LogWarning("[RestPanelUI] RestPanel child not found, UI may not be visible");
+            }
         }
 
         public void Hide()
         {
+            Debug.Log("[RestPanelUI] Hide() called");
+            
+            // Deactivate the parent GameObject (this component's GameObject)
             gameObject.SetActive(false);
+            
+            // Also deactivate the child RestPanel if it exists
+            Transform restPanelChild = transform.Find("RestPanel");
+            if (restPanelChild != null)
+            {
+                restPanelChild.gameObject.SetActive(false);
+            }
+        }
+
+        public void ResetProcessingState()
+        {
+            isProcessing = false;
+            if (sleepButton != null)
+            {
+                sleepButton.interactable = true;
+            }
+            if (cancelButton != null)
+            {
+                cancelButton.interactable = true;
+            }
+            Debug.Log("[RestPanelUI] Processing state reset");
         }
     }
 } 

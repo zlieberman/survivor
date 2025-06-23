@@ -68,7 +68,7 @@ namespace Survivor.UI
                 TryFindPlayer();
             }
 
-            if (Input.GetKeyDown(toggleKey))
+            if (InputBlocker.GetKeyDown(toggleKey))
             {
                 Debug.Log($"[InventoryPanel] Toggle key {toggleKey} pressed");
                 ToggleVisibility();

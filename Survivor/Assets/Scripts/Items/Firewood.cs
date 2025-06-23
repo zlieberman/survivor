@@ -107,9 +107,8 @@ namespace Survivor.Items
 
         private void HandleInteraction()
         {
-            if (isPlayerInRange && Input.GetKeyDown(KeyCode.E))
+            if (isPlayerInRange && InputBlocker.GetKeyDown(KeyCode.E))
             {
-                Debug.Log("[Firewood] E key pressed while player in range");
                 CollectFirewood();
             }
         }

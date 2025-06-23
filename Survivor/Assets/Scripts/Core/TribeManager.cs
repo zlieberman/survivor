@@ -8,6 +8,7 @@ using Survivor.UI;
 using StarterAssets;
 using Survivor.Characters;
 using Survivor.Generation;
+using Survivor.Shared;
 
 namespace Survivor.Core
 {
@@ -82,7 +83,7 @@ namespace Survivor.Core
         private void Update()
         {
             // Handle T key press to show tribe info menu
-            if (Input.GetKeyDown(KeyCode.T))
+            if (InputBlocker.GetKeyDown(KeyCode.T))
             {
                 Debug.Log("[TribeManager] T key pressed - showing tribe info menu");
                 ShowTribeInfoMenu();

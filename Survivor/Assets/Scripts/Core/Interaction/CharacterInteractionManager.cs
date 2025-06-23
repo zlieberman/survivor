@@ -27,12 +27,12 @@ namespace Survivor.Core.Interaction
         private void Update()
         {
             // Debug log when E is pressed
-            if (Input.GetKeyDown(interactKey))
+            if (InputBlocker.GetKeyDown(interactKey))
             {
-                Debug.Log($"[CharacterInteractionManager] E key pressed. In range: {isInRange}, Has interactable: {currentInteractable != null}");
+                Debug.Log("[CharacterInteractionManager] Interaction key pressed");
             }
 
-            if (isInRange && Input.GetKeyDown(interactKey) && currentInteractable != null)
+            if (isInRange && InputBlocker.GetKeyDown(interactKey) && currentInteractable != null)
             {
                 Debug.Log($"[CharacterInteractionManager] Attempting to start dialogue with {currentInteractable.GetDisplayName()}");
                 if (dialogueManager != null)

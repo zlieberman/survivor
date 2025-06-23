@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Survivor.Shared;
 
 namespace Survivor.Interactables
 {
@@ -77,7 +78,7 @@ namespace Survivor.Interactables
 
         private void HandleInteractionInput()
         {
-            if (Input.GetKeyDown(interactionKey) && currentInteractable != null && currentInteractable.IsPlayerInRange)
+            if (InputBlocker.GetKeyDown(interactionKey) && currentInteractable != null && currentInteractable.IsPlayerInRange)
             {
                 currentInteractable.Interact();
             }

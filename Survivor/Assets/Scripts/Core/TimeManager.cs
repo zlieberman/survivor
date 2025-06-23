@@ -29,6 +29,7 @@ namespace Survivor.Core
 
         [Header("Events")]
         public UnityEvent onGameHourPassed; // Event triggered every game hour
+        public UnityEvent<float> onTimeAdvanced; // Event triggered when time is manually advanced
 
         private void Awake()
         {
@@ -48,6 +49,15 @@ namespace Survivor.Core
             // Register this TimeManager as the time provider
             GameTimeService.RegisterTimeProvider(this);
             StartCoroutine(UpdateGameTime());
+            
+            // Subscribe to interactable time advancement events
+            SubscribeToInteractableEvents();
+            
+            // Start periodic subscription check to catch interactables created after TimeManager
+            StartCoroutine(PeriodicSubscriptionCheck());
+            
+            // Also do an immediate check after a short delay
+            StartCoroutine(DelayedSubscriptionCheck());
         }
 
         private void Update()
@@ -186,12 +196,479 @@ namespace Survivor.Core
             Debug.Log($"[TimeManager] Updated player stats - Hunger: +{hungerIncrease:F2}, Thirst: +{thirstIncrease:F2}, Energy: -{energyDecrease:F2}");
         }
 
+        // Public method to manually advance time (called by tent and other systems)
+        public void AdvanceTime(float hours)
+        {
+            float timeToAdvance = hours * realTimePerGameHour;
+            ElapsedRealTime += timeToAdvance;
+            
+            Debug.Log($"[TimeManager] Manually advanced time by {hours} hours ({timeToAdvance}s real time)");
+            Debug.Log($"[TimeManager] New elapsed time: {ElapsedRealTime:F1}s");
+            
+            // Trigger the time advanced event
+            onTimeAdvanced?.Invoke(hours);
+            
+            // Also update all systems immediately
+            UpdateAllSystems();
+            UpdatePlayerStats();
+        }
+
         private void OnDestroy()
         {
             // Unregister when destroyed
             if (Instance == this)
             {
                 GameTimeService.UnregisterTimeProvider();
+            }
+        }
+
+        private void SubscribeToInteractableEvents()
+        {
+            // Find all interactables in the scene and subscribe to their time advancement events
+            var interactables = FindObjectsOfType<BaseInteractable>();
+            Debug.Log($"[TimeManager] SubscribeToInteractableEvents called - Found {interactables.Length} interactables");
+            
+            if (interactables.Length == 0)
+            {
+                Debug.LogWarning("[TimeManager] No interactables found in scene - this might indicate a timing issue");
+                Debug.LogWarning("[TimeManager] TentInteractable might not be created yet");
+            }
+            
+            foreach (var interactable in interactables)
+            {
+                Debug.Log($"[TimeManager] Processing interactable: {interactable.name} (Type: {interactable.GetType().Name})");
+                SubscribeToInteractable(interactable);
+            }
+            
+            Debug.Log("[TimeManager] SubscribeToInteractableEvents completed");
+        }
+        
+        private void SubscribeToInteractable(BaseInteractable interactable)
+        {
+            if (interactable == null) return;
+            
+            Debug.Log($"[TimeManager] Attempting to subscribe to interactable: {interactable.name} (Type: {interactable.GetType().Name})");
+            
+            if (interactable.onTimeAdvanced != null)
+            {
+                // Check if we're already subscribed to avoid duplicates
+                bool alreadySubscribed = false;
+                for (int i = 0; i < interactable.onTimeAdvanced.GetPersistentEventCount(); i++)
+                {
+                    var target = interactable.onTimeAdvanced.GetPersistentTarget(i);
+                    if (target == this)
+                    {
+                        alreadySubscribed = true;
+                        Debug.Log($"[TimeManager] Already subscribed to {interactable.name} - skipping");
+                        break;
+                    }
+                }
+                
+                if (!alreadySubscribed)
+                {
+                    interactable.onTimeAdvanced.AddListener(OnInteractableTimeAdvanced);
+                    Debug.Log($"[TimeManager] Successfully subscribed to interactable time events: {interactable.name}");
+                }
+                else
+                {
+                    Debug.Log($"[TimeManager] Already subscribed to interactable: {interactable.name}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[TimeManager] onTimeAdvanced event is null on {interactable.name} - skipping subscription");
+            }
+        }
+        
+        // Public method to subscribe to new interactables (can be called by other systems)
+        public void SubscribeToNewInteractables()
+        {
+            Debug.Log("[TimeManager] SubscribeToNewInteractables called - searching for new interactables...");
+            var interactables = FindObjectsOfType<BaseInteractable>();
+            Debug.Log($"[TimeManager] Found {interactables.Length} total interactables");
+            
+            foreach (var interactable in interactables)
+            {
+                SubscribeToInteractable(interactable);
+            }
+            
+            Debug.Log("[TimeManager] SubscribeToNewInteractables completed");
+        }
+        
+        [ContextMenu("Manual Subscribe to New Interactables")]
+        public void ManualSubscribeToNewInteractables()
+        {
+            Debug.Log("[TimeManager] Manual subscription triggered via context menu");
+            SubscribeToNewInteractables();
+        }
+        
+        [ContextMenu("Subscribe to Specific Interactable")]
+        public void SubscribeToSpecificInteractable()
+        {
+            Debug.Log("[TimeManager] Subscribe to Specific Interactable triggered");
+            
+            // Find the first TentInteractable in the scene
+            var tentInteractable = FindObjectOfType<BaseInteractable>();
+            if (tentInteractable != null)
+            {
+                Debug.Log($"[TimeManager] Found interactable: {tentInteractable.name} (Type: {tentInteractable.GetType().Name})");
+                SubscribeToInteractable(tentInteractable);
+                
+                // Test the subscription
+                if (tentInteractable.onTimeAdvanced != null)
+                {
+                    int listenerCount = tentInteractable.onTimeAdvanced.GetPersistentEventCount();
+                    Debug.Log($"[TimeManager] After subscription - {tentInteractable.name} has {listenerCount} listeners");
+                    
+                    if (listenerCount > 0)
+                    {
+                        Debug.Log("[TimeManager] Subscription successful! Testing with small time advancement...");
+                        // Trigger a small test
+                        tentInteractable.TriggerTimeAdvancement(0.01f);
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("[TimeManager] No interactables found in scene");
+            }
+        }
+        
+        [ContextMenu("Subscribe to TentInteractable")]
+        public void SubscribeToTentInteractable()
+        {
+            Debug.Log("[TimeManager] Subscribe to TentInteractable triggered");
+            
+            // Find all TentInteractable objects specifically
+            var tentInteractables = FindObjectsOfType<MonoBehaviour>();
+            var tentInteractable = null as BaseInteractable;
+            
+            foreach (var mb in tentInteractables)
+            {
+                if (mb.GetType().Name == "TentInteractable")
+                {
+                    tentInteractable = mb as BaseInteractable;
+                    break;
+                }
+            }
+            
+            if (tentInteractable != null)
+            {
+                Debug.Log($"[TimeManager] Found TentInteractable: {tentInteractable.name}");
+                SubscribeToInteractable(tentInteractable);
+                
+                // Test the subscription
+                if (tentInteractable.onTimeAdvanced != null)
+                {
+                    int listenerCount = tentInteractable.onTimeAdvanced.GetPersistentEventCount();
+                    Debug.Log($"[TimeManager] After subscription - {tentInteractable.name} has {listenerCount} listeners");
+                    
+                    if (listenerCount > 0)
+                    {
+                        Debug.Log("[TimeManager] TentInteractable subscription successful! Testing with small time advancement...");
+                        tentInteractable.TriggerTimeAdvancement(0.01f);
+                    }
+                    else
+                    {
+                        Debug.LogError("[TimeManager] TentInteractable subscription failed - still no listeners");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("[TimeManager] TentInteractable.onTimeAdvanced is null");
+                }
+            }
+            else
+            {
+                Debug.LogError("[TimeManager] No TentInteractable found in scene");
+                
+                // List all MonoBehaviour types for debugging
+                Debug.Log("[TimeManager] Available MonoBehaviour types in scene:");
+                var allMonoBehaviours = FindObjectsOfType<MonoBehaviour>();
+                foreach (var mb in allMonoBehaviours)
+                {
+                    if (mb.GetType().Name.Contains("Interactable") || mb.GetType().Name.Contains("Tent"))
+                    {
+                        Debug.Log($"  - {mb.name}: {mb.GetType().Name}");
+                    }
+                }
+            }
+        }
+        
+        [ContextMenu("Debug All Interactables")]
+        public void DebugAllInteractables()
+        {
+            Debug.Log("[TimeManager] === DEBUGGING ALL INTERACTABLES ===");
+            
+            var allMonoBehaviours = FindObjectsOfType<MonoBehaviour>();
+            var interactables = new System.Collections.Generic.List<BaseInteractable>();
+            
+            Debug.Log($"[TimeManager] Found {allMonoBehaviours.Length} total MonoBehaviour objects");
+            
+            foreach (var mb in allMonoBehaviours)
+            {
+                if (mb is BaseInteractable)
+                {
+                    var interactable = mb as BaseInteractable;
+                    interactables.Add(interactable);
+                    Debug.Log($"[TimeManager] Found interactable: {interactable.name} (Type: {interactable.GetType().Name})");
+                    
+                    if (interactable.onTimeAdvanced != null)
+                    {
+                        int listenerCount = interactable.onTimeAdvanced.GetPersistentEventCount();
+                        Debug.Log($"[TimeManager]   - onTimeAdvanced listeners: {listenerCount}");
+                        
+                        for (int i = 0; i < listenerCount; i++)
+                        {
+                            var target = interactable.onTimeAdvanced.GetPersistentTarget(i);
+                            var methodName = interactable.onTimeAdvanced.GetPersistentMethodName(i);
+                            Debug.Log($"[TimeManager]     - Listener {i}: {target?.GetType().Name}.{methodName}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[TimeManager]   - onTimeAdvanced is NULL!");
+                    }
+                }
+            }
+            
+            Debug.Log($"[TimeManager] Total interactables found: {interactables.Count}");
+            
+            // Try to subscribe to all of them
+            foreach (var interactable in interactables)
+            {
+                Debug.Log($"[TimeManager] Attempting to subscribe to {interactable.name}...");
+                SubscribeToInteractable(interactable);
+            }
+            
+            Debug.Log("[TimeManager] === END DEBUGGING ===");
+        }
+        
+        [ContextMenu("Manual Connect to TentInteractable")]
+        public void ManualConnectToTentInteractable()
+        {
+            Debug.Log("[TimeManager] Manual Connect to TentInteractable triggered");
+            
+            // Find TentInteractable
+            var allMonoBehaviours = FindObjectsOfType<MonoBehaviour>();
+            BaseInteractable tentInteractable = null;
+            
+            foreach (var mb in allMonoBehaviours)
+            {
+                if (mb.GetType().Name == "TentInteractable")
+                {
+                    tentInteractable = mb as BaseInteractable;
+                    break;
+                }
+            }
+            
+            if (tentInteractable != null)
+            {
+                Debug.Log($"[TimeManager] Found TentInteractable: {tentInteractable.name}");
+                ManualConnectToInteractable(tentInteractable);
+                
+                // Test the connection
+                if (tentInteractable.onTimeAdvanced != null)
+                {
+                    int listenerCount = tentInteractable.onTimeAdvanced.GetPersistentEventCount();
+                    if (listenerCount > 0)
+                    {
+                        Debug.Log("[TimeManager] Manual connection successful! Testing with small time advancement...");
+                        tentInteractable.TriggerTimeAdvancement(0.01f);
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("[TimeManager] No TentInteractable found in scene");
+            }
+        }
+        
+        private void OnInteractableTimeAdvanced(float hours)
+        {
+            Debug.Log($"[TimeManager] Interactable time advanced by {hours} hours - advancing time");
+            
+            // Check if this time advancement is coming from a tent
+            bool isFromTent = false;
+            
+            // Get the current stack trace to see what called this method
+            var stackTrace = new System.Diagnostics.StackTrace();
+            Debug.Log("[TimeManager] Checking stack trace for TentInteractable...");
+            
+            foreach (var frame in stackTrace.GetFrames())
+            {
+                var method = frame.GetMethod();
+                if (method != null && method.DeclaringType != null)
+                {
+                    var declaringType = method.DeclaringType.Name;
+                    Debug.Log($"[TimeManager] Stack frame: {declaringType}.{method.Name}");
+                    if (declaringType.Contains("TentInteractable"))
+                    {
+                        isFromTent = true;
+                        Debug.Log("[TimeManager] Detected time advancement from TentInteractable - will skip player stats update");
+                        break;
+                    }
+                }
+            }
+            
+            // Advance time but skip player stats update if coming from tent
+            if (isFromTent)
+            {
+                float timeToAdvance = hours * realTimePerGameHour;
+                ElapsedRealTime += timeToAdvance;
+                
+                Debug.Log($"[TimeManager] Tent time advancement: {hours} hours ({timeToAdvance}s real time)");
+                Debug.Log($"[TimeManager] New elapsed time: {ElapsedRealTime:F1}s");
+                
+                // Trigger the time advanced event
+                onTimeAdvanced?.Invoke(hours);
+                
+                // Update all systems but skip player stats
+                UpdateAllSystems();
+                Debug.Log("[TimeManager] Skipped player stats update (tent rest)");
+            }
+            else
+            {
+                // Normal time advancement - use the standard method
+                Debug.Log("[TimeManager] Normal time advancement - updating player stats");
+                AdvanceTime(hours);
+            }
+        }
+
+        private IEnumerator PeriodicSubscriptionCheck()
+        {
+            Debug.Log("[TimeManager] Starting periodic subscription check for new interactables");
+            
+            while (true)
+            {
+                yield return new WaitForSeconds(2f); // Check every 2 seconds
+                
+                // Find all interactables and ensure we're subscribed to them
+                var interactables = FindObjectsOfType<BaseInteractable>();
+                int newSubscriptions = 0;
+                
+                foreach (var interactable in interactables)
+                {
+                    if (interactable != null && interactable.onTimeAdvanced != null)
+                    {
+                        // Check if we're already subscribed
+                        bool alreadySubscribed = false;
+                        for (int i = 0; i < interactable.onTimeAdvanced.GetPersistentEventCount(); i++)
+                        {
+                            var target = interactable.onTimeAdvanced.GetPersistentTarget(i);
+                            if (target == this)
+                            {
+                                alreadySubscribed = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!alreadySubscribed)
+                        {
+                            interactable.onTimeAdvanced.AddListener(OnInteractableTimeAdvanced);
+                            newSubscriptions++;
+                            Debug.Log($"[TimeManager] Periodically subscribed to new interactable: {interactable.name}");
+                        }
+                    }
+                }
+                
+                if (newSubscriptions > 0)
+                {
+                    Debug.Log($"[TimeManager] Periodic check: Added {newSubscriptions} new subscriptions");
+                }
+            }
+        }
+
+        private IEnumerator DelayedSubscriptionCheck()
+        {
+            yield return new WaitForSeconds(1f); // Wait 1 second
+            
+            Debug.Log("[TimeManager] Performing delayed subscription check...");
+            SubscribeToNewInteractables();
+        }
+
+        // Public method to subscribe to a specific interactable by reference
+        public void SubscribeToSpecificInteractable(BaseInteractable interactable)
+        {
+            if (interactable == null)
+            {
+                Debug.LogError("[TimeManager] SubscribeToSpecificInteractable called with null interactable");
+                return;
+            }
+            
+            Debug.Log($"[TimeManager] SubscribeToSpecificInteractable called for: {interactable.name}");
+            SubscribeToInteractable(interactable);
+            
+            // Test the subscription
+            if (interactable.onTimeAdvanced != null)
+            {
+                int listenerCount = interactable.onTimeAdvanced.GetPersistentEventCount();
+                Debug.Log($"[TimeManager] After specific subscription - {interactable.name} has {listenerCount} listeners");
+                
+                if (listenerCount > 0)
+                {
+                    Debug.Log("[TimeManager] Specific subscription successful!");
+                }
+                else
+                {
+                    Debug.LogError("[TimeManager] Specific subscription failed - still no listeners");
+                }
+            }
+            else
+            {
+                Debug.LogError($"[TimeManager] {interactable.name}.onTimeAdvanced is null");
+            }
+        }
+        
+        // Public method to manually connect to any interactable
+        public void ManualConnectToInteractable(BaseInteractable interactable)
+        {
+            if (interactable == null)
+            {
+                Debug.LogError("[TimeManager] ManualConnectToInteractable called with null interactable");
+                return;
+            }
+            
+            Debug.Log($"[TimeManager] ManualConnectToInteractable called for: {interactable.name}");
+            
+            if (interactable.onTimeAdvanced != null)
+            {
+                // Check if we're already connected
+                bool alreadyConnected = false;
+                for (int i = 0; i < interactable.onTimeAdvanced.GetPersistentEventCount(); i++)
+                {
+                    var target = interactable.onTimeAdvanced.GetPersistentTarget(i);
+                    if (target == this)
+                    {
+                        alreadyConnected = true;
+                        Debug.Log($"[TimeManager] Already manually connected to {interactable.name}");
+                        break;
+                    }
+                }
+                
+                if (!alreadyConnected)
+                {
+                    // Manually add our OnInteractableTimeAdvanced method to the interactable's event
+                    interactable.onTimeAdvanced.AddListener(OnInteractableTimeAdvanced);
+                    Debug.Log($"[TimeManager] Manually connected to {interactable.name}");
+                    
+                    // Test the connection
+                    int listenerCount = interactable.onTimeAdvanced.GetPersistentEventCount();
+                    Debug.Log($"[TimeManager] After manual connection - {interactable.name} has {listenerCount} listeners");
+                    
+                    if (listenerCount > 0)
+                    {
+                        Debug.Log("[TimeManager] Manual connection successful!");
+                    }
+                    else
+                    {
+                        Debug.LogError("[TimeManager] Manual connection failed - still no listeners");
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError($"[TimeManager] {interactable.name}.onTimeAdvanced is null");
             }
         }
     }

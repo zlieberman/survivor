@@ -2151,8 +2151,8 @@ GameObject:
   - component: {fileID: 6200898292120809921}
   - component: {fileID: 7683241055763377585}
   - component: {fileID: 3443442444041814524}
-  - component: {fileID: 4497575651238934389}
   - component: {fileID: 3012564464217651362}
+  - component: {fileID: 2923010796074934616}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -2442,22 +2442,6 @@ MonoBehaviour:
   isInChallenge: 0
   gender: 0
   maxWeight: 20
---- !u!114 &4497575651238934389
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7683241055763377597}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7006b62515bbb45f28f349af005df8a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  interactionRange: 3
-  npcLayer:
-    serializedVersion: 2
-    m_Bits: 64
 --- !u!114 &3012564464217651362
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2478,6 +2462,18 @@ MonoBehaviour:
   swimThreshold: 0.67
   swimGravity: -2
   buoyancyForce: 2
+--- !u!114 &2923010796074934616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7683241055763377597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efe3ea907e7df4edebccae457aa83674, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &7758694408128837486
 GameObject:
   m_ObjectHideFlags: 0

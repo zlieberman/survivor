@@ -23,6 +23,7 @@ namespace Survivor.UI
 
         // Event that the DialogueManager can subscribe to
         public event Action OnDialogueClosed;
+        public event Action<string> OnMessageSent;
 
         private bool isProcessingResponse = false;
 
@@ -116,8 +117,9 @@ namespace Survivor.UI
             playerInput.text = string.Empty;
             isProcessingResponse = true;
 
-            // The manager/controller should handle the response and call SetDialogueLine
-            // This method can be left empty or raise an event if needed
+            // Raise event for DialogueManager to handle
+            OnMessageSent?.Invoke(message);
+
             isProcessingResponse = false;
             if (playerInput != null)
             {
