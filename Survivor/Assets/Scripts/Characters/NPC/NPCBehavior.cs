@@ -85,6 +85,7 @@ namespace Survivor.Characters
         private NavMeshAgent agent;
         private Character character;
         private UnityEngine.CharacterController characterController;
+        private NPCCharacter npcCharacter; // Reference to NPCCharacter to check dialogue state
         private float idleTimer;
         private float wanderTimer;
         private bool isIdle;
@@ -94,6 +95,7 @@ namespace Survivor.Characters
         private Vector3 previousPosition;
         private float currentWanderTime;
         private LayerMask actualWaterLayer;
+        private bool isPaused = false; // New field to track pause state
 
         // Behavior states
         private enum BehaviorState
@@ -109,6 +111,7 @@ namespace Survivor.Characters
             agent = GetComponent<NavMeshAgent>();
             character = GetComponent<Character>();
             characterController = GetComponent<UnityEngine.CharacterController>();
+            npcCharacter = GetComponent<NPCCharacter>(); // Get NPCCharacter reference
 
             // Validate required components
             if (agent == null)
@@ -185,12 +188,30 @@ namespace Survivor.Characters
 
         private void Update()
         {
+            // Don't update behavior if paused or in dialogue
+            if (isPaused) return;
+            
+            // Check if NPC is in dialogue - if so, don't move
+            if (npcCharacter != null && npcCharacter.IsInDialogue)
+            {
+                return;
+            }
+            
             UpdateBehavior();
             UpdateAnimation();
         }
 
         private void LateUpdate()
         {
+            // Don't update movement if paused or in dialogue
+            if (isPaused) return;
+            
+            // Check if NPC is in dialogue - if so, don't move
+            if (npcCharacter != null && npcCharacter.IsInDialogue)
+            {
+                return;
+            }
+            
             // Sync character transform with NavMeshAgent movement
             if (agent != null && agent.isOnNavMesh && agent.velocity.magnitude > 0.1f)
             {
@@ -547,8 +568,27 @@ namespace Survivor.Characters
             SetReturningToCampState();
         }
 
+        public void Pause(bool pause)
+        {
+            isPaused = pause;
+            if (isPaused)
+            {
+                Debug.Log($"[NPCBehavior] Pausing movement for {gameObject.name}");
+                // Stop the agent and reset path when pausing
+                if (agent != null && agent.isOnNavMesh)
+                {
+                    agent.ResetPath();
+                }
+            }
+            else
+            {
+                Debug.Log($"[NPCBehavior] Resuming movement for {gameObject.name}");
+            }
+        }
+
         public bool IsWandering => isWandering;
         public bool IsIdle => isIdle;
+        public bool IsPaused => isPaused;
         public Vector3? CurrentDestination => (agent != null && agent.isOnNavMesh && agent.hasPath) ? agent.destination : null;
         public bool IsReady => agent != null && agent.isOnNavMesh && enabled;
 
@@ -717,57 +757,6 @@ namespace Survivor.Characters
             else
             {
                 Debug.LogWarning($"[NPCBehavior] Agent is not on NavMesh for {gameObject.name}");
-            }
-        }
-
-        // Debug info
-        private void OnGUI()
-        {
-            if (!enableDebugVisualization || !showAgentInfo) return;
-
-            Vector3 screenPos = Camera.main.WorldToScreenPoint(transform.position);
-            if (screenPos.z > 0)
-            {
-                // Create a background box for the debug info
-                float boxWidth = 200f;
-                float boxHeight = 120f;
-                float x = screenPos.x - boxWidth / 2f;
-                float y = Screen.height - screenPos.y - boxHeight - 50f;
-                
-                GUI.Box(new Rect(x, y, boxWidth, boxHeight), "");
-                
-                // Display agent information
-                GUILayout.BeginArea(new Rect(x + 5, y + 5, boxWidth - 10, boxHeight - 10));
-                GUILayout.Label($"{gameObject.name}", GUILayout.Height(20));
-                GUILayout.Label($"State: {currentState}", GUILayout.Height(15));
-                
-                if (agent != null)
-                {
-                    GUILayout.Label($"OnNavMesh: {agent.isOnNavMesh}", GUILayout.Height(15));
-                    GUILayout.Label($"HasPath: {(agent.isOnNavMesh ? agent.hasPath.ToString() : "N/A (not on NavMesh)")}", GUILayout.Height(15));
-                    GUILayout.Label($"Speed: {agent.velocity.magnitude:F2}", GUILayout.Height(15));
-                    
-                    // Only access remainingDistance if agent is on NavMesh
-                    if (agent.isOnNavMesh)
-                    {
-                        GUILayout.Label($"Remaining: {agent.remainingDistance:F1}", GUILayout.Height(15));
-                    }
-                    else
-                    {
-                        GUILayout.Label("Remaining: N/A (not on NavMesh)", GUILayout.Height(15));
-                    }
-                    
-                    if (agent != null && agent.isOnNavMesh && agent.hasPath)
-                    {
-                        GUILayout.Label($"PathLength: {agent.path.corners.Length}", GUILayout.Height(15));
-                    }
-                }
-                else
-                {
-                    GUILayout.Label("No NavMeshAgent!", GUILayout.Height(15));
-                }
-                
-                GUILayout.EndArea();
             }
         }
 

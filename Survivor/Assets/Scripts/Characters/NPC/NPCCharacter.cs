@@ -15,9 +15,12 @@ namespace Survivor.Characters
         private UnityEngine.CharacterController controller;
         private bool hasGeneratedStats = false;
         private CharacterModelManager modelManager;
+        private NPCBehavior npcBehavior; // Reference to NPCBehavior for movement control
+        private bool isInDialogue = false; // Simple flag to track dialogue state
 
         // Properties for DialogueManager
         public bool IsInteractable => isPlayerInRange;
+        public bool IsInDialogue => isInDialogue; // Public property to check dialogue state
         public float DistanceToPlayer
         {
             get
@@ -38,6 +41,13 @@ namespace Survivor.Characters
             
             // Get character controller
             controller = GetComponent<UnityEngine.CharacterController>();
+            
+            // Get NPCBehavior component for movement control
+            npcBehavior = GetComponent<NPCBehavior>();
+            if (npcBehavior == null)
+            {
+                Debug.LogWarning($"[NPCCharacter] No NPCBehavior component found on {gameObject.name}");
+            }
             
             // Set NPC-specific properties
             isPlayer = false;
@@ -113,6 +123,25 @@ namespace Survivor.Characters
                 hasGeneratedStats = true;
                 Debug.Log($"[NPCCharacter] Generated stats in Initialize - Speed: {stats.speed}, Strength: {stats.strength}, etc.");
             }
+        }
+
+        // Override dialogue methods to control NPC movement
+        public override void OnDialogueStart()
+        {
+            Debug.Log($"[NPCCharacter] Dialogue started with {characterName}, setting isInDialogue = true");
+            isInDialogue = true;
+            
+            // Call base implementation
+            base.OnDialogueStart();
+        }
+
+        public override void OnDialogueEnd()
+        {
+            Debug.Log($"[NPCCharacter] Dialogue ended with {characterName}, setting isInDialogue = false");
+            isInDialogue = false;
+            
+            // Call base implementation
+            base.OnDialogueEnd();
         }
 
         private void Update()
