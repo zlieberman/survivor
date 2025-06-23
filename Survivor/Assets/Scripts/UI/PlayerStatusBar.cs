@@ -17,6 +17,23 @@ namespace Survivor.UI
         [SerializeField] private TextMeshProUGUI hungerText;
         [SerializeField] private TextMeshProUGUI thirstText;
 
+        private bool isInitialized = false;
+
+        private void Update()
+        {
+            // Keep trying to find and initialize with the player until successful
+            if (!isInitialized)
+            {
+                var player = FindObjectOfType<Survivor.Characters.Character>();
+                if (player != null && player.IsPlayer)
+                {
+                    SetStatus(player.Stats);
+                    isInitialized = true;
+                    Debug.Log("[PlayerStatusBar] Successfully initialized with player stats");
+                }
+            }
+        }
+
         public void SetStatus(CharacterStats data)
         {
             // Energy
