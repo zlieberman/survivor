@@ -1,104 +1,215 @@
 using UnityEngine;
 using StarterAssets;
-using Survivor.Shared;
+using Crest;
 
 namespace Survivor.Characters
 {
     [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(ThirdPersonController))]
-    public class CharacterSwimming : MonoBehaviour, IWaterInteractable
+    public class CharacterSwimming : MonoBehaviour
     {
         [Header("Swimming Settings")]
-        public float swimSpeed = 4f;
-        public float swimUpSpeed = 3f;
-        public float swimDownSpeed = 2f;
-        public float waterDrag = 0.8f;
-        public float swimThreshold = 0.67f; // 2/3 submerged threshold
-
-        [Header("Water Physics")]
+        [Tooltip("Speed multiplier when in water (0.5 = half speed)")]
+        public float waterSpeedMultiplier = 0.7f;
+        [Tooltip("Speed multiplier when swimming (fully submerged)")]
+        public float swimSpeedMultiplier = 0.5f;
+        [Tooltip("Gravity when swimming")]
         public float swimGravity = -2f;
-        public float normalGravity = -15f;
-        public float buoyancyForce = 2f;
+        [Tooltip("Depth in units to start swimming")]
+        public float swimDepthThreshold = 0.9f;
+
+        [Header("Crest Water Interaction")]
+        [Tooltip("Enable Crest water interaction for foam and wakes")]
+        public bool enableCrestInteraction = true;
+        [Tooltip("Strength of water interaction (affects foam/wake intensity)")]
+        [UnityEngine.Range(0f, 2f)]
+        public float interactionStrength = 1f;
+        [Tooltip("Size of the interaction area")]
+        public float interactionRadius = 1f;
+
+        [Header("Water Detection")]
+        [Tooltip("Layer mask for water objects (fallback if Crest not available)")]
+        public LayerMask waterLayer = 1;
+        [Tooltip("Show debug information")]
+        public bool showDebug = false;
 
         private CharacterController characterController;
-        private ThirdPersonController thirdPersonController;
-        private StarterAssetsInputs input;
+        private MonoBehaviour thirdPersonController;
         private Animator animator;
-
-        private bool isInWater = false;
-        private bool isSwimming = false;
-        private float waterHeight = 0f;
+        
+        // Original values to restore when leaving water
         private float originalGravity;
         private float originalMoveSpeed;
         private float originalSprintSpeed;
+        
+        // Water state
+        private bool isInWater = false;
+        private bool isSwimming = false;
+        private float waterHeight = 0f;
+        private float submersionDepth = 0f;
 
-        // Animation IDs
-        private int animIDSpeed;
-        private int animIDGrounded;
-        private int animIDJump;
-        private int animIDFreeFall;
-        private int animIDSwimming;
+        // Crest water interaction
+        private SphereWaterInteraction waterInteraction;
+        private ObjectWaterInteractionAdaptor waterAdaptor;
+        private SampleHeightHelper sampleHeightHelper;
+
+        // Animation
+        private int isSwimmingHash;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
-            thirdPersonController = GetComponent<ThirdPersonController>();
-            input = GetComponent<StarterAssetsInputs>();
             animator = GetComponent<Animator>();
-
-            // Store original values
-            originalGravity = thirdPersonController.Gravity;
-            originalMoveSpeed = thirdPersonController.MoveSpeed;
-            originalSprintSpeed = thirdPersonController.SprintSpeed;
-
-            // Get animation IDs
-            AssignAnimationIDs();
-        }
-
-        private void AssignAnimationIDs()
-        {
-            animIDSpeed = Animator.StringToHash("Speed");
-            animIDGrounded = Animator.StringToHash("Grounded");
-            animIDJump = Animator.StringToHash("Jump");
-            animIDFreeFall = Animator.StringToHash("FreeFall");
-            animIDSwimming = Animator.StringToHash("Swimming");
-        }
-
-        public void OnEnterWater(float waterHeight)
-        {
-            isInWater = true;
-            this.waterHeight = waterHeight;
-            Debug.Log("[CharacterSwimming] Entered water at height: " + waterHeight);
-        }
-
-        public void OnExitWater()
-        {
-            isInWater = false;
-            isSwimming = false;
             
-            // Restore original values
-            thirdPersonController.Gravity = originalGravity;
-            thirdPersonController.MoveSpeed = originalMoveSpeed;
-            thirdPersonController.SprintSpeed = originalSprintSpeed;
-
-            // Update animator
-            if (animator != null)
+            // Find ThirdPersonController (try both types)
+            thirdPersonController = GetComponent<StarterAssets.ThirdPersonController>();
+            if (thirdPersonController == null)
             {
-                animator.SetBool(animIDSwimming, false);
+                thirdPersonController = GetComponent<ThirdPersonController>();
             }
 
-            Debug.Log("[CharacterSwimming] Exited water");
+            // Setup animation hash
+            isSwimmingHash = Animator.StringToHash("IsSwimming");
+
+            // Initialize Crest water detection
+            sampleHeightHelper = new SampleHeightHelper();
         }
 
-        public void OnStayInWater(float waterHeight, float buoyancyForce, float dragForce)
+        private void Start()
         {
-            this.waterHeight = waterHeight;
+            StoreOriginalValues();
+            SetupCrestWaterInteraction();
+        }
+
+        private void Update()
+        {
+            CheckWaterContact();
+            UpdateSwimmingState();
+        }
+
+        private void SetupCrestWaterInteraction()
+        {
+            if (!enableCrestInteraction || Crest.OceanRenderer.Instance == null)
+            {
+                Debug.Log("[CharacterSwimming] Crest water interaction disabled or OceanRenderer not found");
+                return;
+            }
+
+            // Add SphereWaterInteraction for foam/wake generation (modern approach)
+            waterInteraction = GetComponent<SphereWaterInteraction>();
+            if (waterInteraction == null)
+            {
+                waterInteraction = gameObject.AddComponent<SphereWaterInteraction>();
+                waterInteraction._radius = interactionRadius;
+                waterInteraction._weight = interactionStrength;
+                Debug.Log("[CharacterSwimming] Added SphereWaterInteraction component");
+            }
+
+            // Add ObjectWaterInteractionAdaptor for water detection
+            waterAdaptor = GetComponent<ObjectWaterInteractionAdaptor>();
+            if (waterAdaptor == null)
+            {
+                waterAdaptor = gameObject.AddComponent<ObjectWaterInteractionAdaptor>();
+                Debug.Log("[CharacterSwimming] Added ObjectWaterInteractionAdaptor component");
+            }
+        }
+
+        private void CheckWaterContact()
+        {
+            // Use Crest water detection if available
+            if (Crest.OceanRenderer.Instance != null && waterAdaptor != null)
+            {
+                CheckWaterContactCrest();
+            }
+            else
+            {
+                // Fallback to collision-based detection
+                CheckWaterContactCollision();
+            }
+        }
+
+        private void CheckWaterContactCrest()
+        {
+            // Use Crest's built-in water detection
+            bool wasInWater = isInWater;
+            isInWater = waterAdaptor.InWater;
+
+            if (isInWater)
+            {
+                // Sample water height using Crest
+                sampleHeightHelper.Init(transform.position, interactionRadius);
+                if (sampleHeightHelper.Sample(out float waterHeight))
+                {
+                    this.waterHeight = waterHeight;
+                    submersionDepth = CalculateSubmersionDepth();
+                }
+            }
+            else
+            {
+                waterHeight = 0f;
+                submersionDepth = 0f;
+            }
+
+            // Handle water state changes
+            if (isInWater && !wasInWater)
+            {
+                OnEnterWater();
+            }
+            else if (!isInWater && wasInWater)
+            {
+                OnExitWater();
+            }
+
+            if (showDebug)
+            {
+                Debug.Log($"[CharacterSwimming] {gameObject.name} - In Water: {isInWater}, Swimming: {isSwimming}, Depth: {submersionDepth:F2}");
+            }
+        }
+
+        private void CheckWaterContactCollision()
+        {
+            // Check if character is touching water using Physics.OverlapSphere
+            Vector3 characterCenter = transform.position + characterController.center;
+            float checkRadius = characterController.radius * 0.8f; // Slightly smaller than character radius
             
-            // Calculate submersion percentage
-            float submersionPercentage = CalculateSubmersionPercentage();
+            Collider[] waterColliders = Physics.OverlapSphere(characterCenter, checkRadius, waterLayer);
             
-            // Check if should be swimming
-            bool shouldSwim = submersionPercentage >= swimThreshold;
+            bool wasInWater = isInWater;
+            isInWater = waterColliders.Length > 0;
+
+            // Get water height from the first water collider
+            if (isInWater && waterColliders.Length > 0)
+            {
+                // For simple water detection, use the collider's bounds
+                waterHeight = waterColliders[0].bounds.max.y;
+                submersionDepth = CalculateSubmersionDepth();
+            }
+            else
+            {
+                waterHeight = 0f;
+                submersionDepth = 0f;
+            }
+
+            // Handle water state changes
+            if (isInWater && !wasInWater)
+            {
+                OnEnterWater();
+            }
+            else if (!isInWater && wasInWater)
+            {
+                OnExitWater();
+            }
+
+            if (showDebug)
+            {
+                Debug.Log($"[CharacterSwimming] {gameObject.name} - In Water: {isInWater}, Swimming: {isSwimming}, Depth: {submersionDepth:F2}");
+            }
+        }
+
+        private void UpdateSwimmingState()
+        {
+            if (!isInWater) return;
+
+            bool shouldSwim = submersionDepth >= swimDepthThreshold;
             
             if (shouldSwim && !isSwimming)
             {
@@ -108,22 +219,54 @@ namespace Survivor.Characters
             {
                 StopSwimming();
             }
-
-            // Apply water physics
-            ApplyWaterPhysics(submersionPercentage);
         }
 
-        private float CalculateSubmersionPercentage()
+        private float CalculateSubmersionDepth()
         {
-            float playerHeight = characterController.height;
-            float playerBottom = transform.position.y - playerHeight / 2f;
-            float playerTop = transform.position.y + playerHeight / 2f;
-            float waterSurface = waterHeight;
+            // Calculate how deep the character is in water
+            float characterFeet = transform.position.y - characterController.height * 0.5f;
+            float depth = waterHeight - characterFeet;
+            return Mathf.Max(0f, depth);
+        }
 
-            float submergedHeight = Mathf.Max(0, waterSurface - playerBottom);
-            float totalHeight = playerTop - playerBottom;
+        private void StoreOriginalValues()
+        {
+            originalGravity = GetControllerValue<float>("Gravity");
+            originalMoveSpeed = GetControllerValue<float>("MoveSpeed");
+            originalSprintSpeed = GetControllerValue<float>("SprintSpeed");
+        }
+
+        private T GetControllerValue<T>(string fieldName)
+        {
+            if (thirdPersonController == null) return default(T);
             
-            return Mathf.Clamp01(submergedHeight / totalHeight);
+            var field = thirdPersonController.GetType().GetField(fieldName);
+            if (field != null && field.FieldType == typeof(T))
+            {
+                return (T)field.GetValue(thirdPersonController);
+            }
+            return default(T);
+        }
+
+        private void SetControllerValue<T>(string fieldName, T value)
+        {
+            if (thirdPersonController == null) return;
+            
+            var field = thirdPersonController.GetType().GetField(fieldName);
+            if (field != null && field.FieldType == typeof(T))
+            {
+                field.SetValue(thirdPersonController, value);
+            }
+        }
+
+        private void OnEnterWater()
+        {
+            // Apply water resistance (slower movement)
+            float speedMultiplier = isSwimming ? swimSpeedMultiplier : waterSpeedMultiplier;
+            SetControllerValue("MoveSpeed", originalMoveSpeed * speedMultiplier);
+            SetControllerValue("SprintSpeed", originalSprintSpeed * speedMultiplier);
+            
+            Debug.Log($"[CharacterSwimming] {gameObject.name} entered water");
         }
 
         private void StartSwimming()
@@ -131,142 +274,90 @@ namespace Survivor.Characters
             isSwimming = true;
             
             // Set swimming physics
-            thirdPersonController.Gravity = swimGravity;
-            thirdPersonController.MoveSpeed = swimSpeed;
-            thirdPersonController.SprintSpeed = swimSpeed * 1.2f;
-
-            // Update animator
+            SetControllerValue("Gravity", swimGravity);
+            SetControllerValue("MoveSpeed", originalMoveSpeed * swimSpeedMultiplier);
+            SetControllerValue("SprintSpeed", originalSprintSpeed * swimSpeedMultiplier);
+            
+            // Trigger swimming animation
             if (animator != null)
             {
-                animator.SetBool(animIDSwimming, true);
-                animator.SetBool(animIDGrounded, false);
+                animator.SetBool(isSwimmingHash, true);
             }
-
-            Debug.Log("[CharacterSwimming] Started swimming");
+            
+            Debug.Log($"[CharacterSwimming] {gameObject.name} started swimming");
         }
 
         private void StopSwimming()
         {
             isSwimming = false;
             
-            // Restore normal physics
-            thirdPersonController.Gravity = normalGravity;
-            thirdPersonController.MoveSpeed = originalMoveSpeed;
-            thirdPersonController.SprintSpeed = originalSprintSpeed;
-
-            // Update animator
-            if (animator != null)
-            {
-                animator.SetBool(animIDSwimming, false);
-            }
-
-            Debug.Log("[CharacterSwimming] Stopped swimming");
-        }
-
-        private void ApplyWaterPhysics(float submersionPercentage)
-        {
-            if (!isInWater) return;
-
-            // Apply buoyancy force
-            if (submersionPercentage > 0)
-            {
-                float buoyancyForce = this.buoyancyForce * submersionPercentage;
-                Vector3 buoyancyVelocity = Vector3.up * buoyancyForce * Time.deltaTime;
-                characterController.Move(buoyancyVelocity);
-            }
-
-            // Handle swimming movement
-            if (isSwimming)
-            {
-                HandleSwimmingMovement();
-            }
-            else
-            {
-                // Apply water resistance to normal movement
-                ApplyWaterResistance(submersionPercentage);
-            }
-        }
-
-        private void HandleSwimmingMovement()
-        {
-            if (input == null) return;
-
-            Vector3 swimDirection = Vector3.zero;
-
-            // Horizontal movement
-            if (input.move.magnitude > 0.1f)
-            {
-                swimDirection += new Vector3(input.move.x, 0, input.move.y).normalized * swimSpeed;
-            }
-
-            // Vertical movement
-            if (input.jump)
-            {
-                swimDirection.y = swimUpSpeed;
-            }
-            else if (input.sprint) // Use sprint for diving
-            {
-                swimDirection.y = -swimDownSpeed;
-            }
-
-            // Apply swimming movement
-            if (swimDirection.magnitude > 0.1f)
-            {
-                characterController.Move(swimDirection * Time.deltaTime);
-            }
-
-            // Update animator speed for swimming
-            if (animator != null)
-            {
-                float swimSpeedMagnitude = new Vector3(swimDirection.x, 0, swimDirection.z).magnitude;
-                animator.SetFloat(animIDSpeed, swimSpeedMagnitude);
-            }
-        }
-
-        private void ApplyWaterResistance(float submersionPercentage)
-        {
-            // Reduce movement speed based on submersion
-            float waterResistance = 1f - (submersionPercentage * waterDrag);
+            // Restore normal gravity
+            SetControllerValue("Gravity", originalGravity);
             
-            thirdPersonController.MoveSpeed = originalMoveSpeed * waterResistance;
-            thirdPersonController.SprintSpeed = originalSprintSpeed * waterResistance;
+            // Apply water resistance instead of swimming speed
+            SetControllerValue("MoveSpeed", originalMoveSpeed * waterSpeedMultiplier);
+            SetControllerValue("SprintSpeed", originalSprintSpeed * waterSpeedMultiplier);
+            
+            // Stop swimming animation
+            if (animator != null)
+            {
+                animator.SetBool(isSwimmingHash, false);
+            }
+            
+            Debug.Log($"[CharacterSwimming] {gameObject.name} stopped swimming");
         }
 
-        private void Update()
+        private void OnExitWater()
         {
-            // Update swimming state based on submersion
-            if (isInWater)
-            {
-                float submersionPercentage = CalculateSubmersionPercentage();
-                bool shouldSwim = submersionPercentage >= swimThreshold;
-                
-                if (shouldSwim && !isSwimming)
-                {
-                    StartSwimming();
-                }
-                else if (!shouldSwim && isSwimming)
-                {
-                    StopSwimming();
-                }
-            }
-        }
-
-        // Public methods for external access
-        public bool IsSwimming => isSwimming;
-        public bool IsInWater => isInWater;
-        public float GetSubmersionPercentage() => CalculateSubmersionPercentage();
-
-        // Method to force swimming state (useful for debugging or special cases)
-        public void ForceSwimmingState(bool swimming)
-        {
-            if (swimming && !isSwimming)
-            {
-                StartSwimming();
-            }
-            else if (!swimming && isSwimming)
+            if (isSwimming)
             {
                 StopSwimming();
             }
+            
+            // Restore normal physics
+            RestoreNormalPhysics();
+            Debug.Log($"[CharacterSwimming] {gameObject.name} exited water");
         }
+
+        private void RestoreNormalPhysics()
+        {
+            // Restore original values
+            SetControllerValue("Gravity", originalGravity);
+            SetControllerValue("MoveSpeed", originalMoveSpeed);
+            SetControllerValue("SprintSpeed", originalSprintSpeed);
+        }
+
+        private void OnDrawGizmos()
+        {
+            if (!showDebug) return;
+            
+            // Draw water detection area
+            Gizmos.color = isInWater ? Color.blue : Color.cyan;
+            Vector3 characterCenter = transform.position + characterController.center;
+            float checkRadius = characterController.radius * 0.8f;
+            Gizmos.DrawWireSphere(characterCenter, checkRadius);
+            
+            // Draw interaction radius if using Crest
+            if (enableCrestInteraction && Crest.OceanRenderer.Instance != null)
+            {
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(transform.position, interactionRadius);
+            }
+            
+            // Draw submersion depth
+            if (isInWater)
+            {
+                Gizmos.color = isSwimming ? Color.red : Color.yellow;
+                Vector3 waterSurface = new Vector3(transform.position.x, waterHeight, transform.position.z);
+                Gizmos.DrawLine(transform.position, waterSurface);
+                Gizmos.DrawWireSphere(waterSurface, 0.2f);
+            }
+        }
+
+        // Public properties for external access
+        public bool IsSwimming => isSwimming;
+        public bool IsInWater => isInWater;
+        public float SubmersionDepth => submersionDepth;
+        public float WaterHeight => waterHeight;
     }
 } 

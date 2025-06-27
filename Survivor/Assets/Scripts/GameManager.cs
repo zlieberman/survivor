@@ -27,6 +27,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Managers")]
     [SerializeField] private DialogueManager dialogueManager;
+    [SerializeField] private ChallengeManager challengeManager;
 
     private CharacterStats mainPlayer;
     private ProceduralIslandGenerator islandGenerator;
@@ -52,6 +53,7 @@ public class GameManager : MonoBehaviour
                 InitializeGame();
             }
             InitializeDialogueSystem();
+            InitializeChallengeSystem();
         }
         else
         {
@@ -206,122 +208,177 @@ public class GameManager : MonoBehaviour
 
     private void SpawnPlayer()
     {
-        if (!isGameInitialized)
+        Debug.Log("Spawning player");
+        
+        // Find camp spawn point
+        Transform campSpawnPoint = FindCampSpawnPointRecursive(transform.root);
+        if (campSpawnPoint == null)
         {
-            Debug.LogError("Cannot spawn player - game not initialized!");
+            Debug.LogError("Could not find CampSpawnPoint in scene!");
             return;
         }
+        Debug.Log("Found camp spawn point");
 
-        if (campGenerator == null)
-        {
-            Debug.LogError("Cannot spawn player - camp generator not found!");
-            return;
-        }
-
-        Debug.Log($"Camp position: {campGenerator.transform.position}");
-        Transform spawnPoint = campGenerator.transform.Find("CampSpawnPoint");
-        if (spawnPoint == null)
-        {
-            // Try to find it recursively
-            spawnPoint = FindCampSpawnPointRecursive(campGenerator.transform);
-        }
-
-        if (spawnPoint == null)
-        {
-            Debug.LogError("Camp spawn point not found!");
-            return;
-        }
-
-        Debug.Log($"Found spawn point at: {spawnPoint.position}");
-
-        // Spawn the main player
+        // Spawn player at camp
         if (playerPrefab != null)
         {
-            Vector3 spawnPosition = spawnPoint.position;
-            Debug.Log($"Attempting to spawn player at: {spawnPosition}");
-
-            // Ensure the spawn position is above ground
-            RaycastHit hit;
-            if (Physics.Raycast(spawnPosition + Vector3.up * 10f, Vector3.down, out hit, 20f, LayerMask.GetMask("Default")))
+            GameObject player = Instantiate(playerPrefab, campSpawnPoint.position, campSpawnPoint.rotation);
+            Debug.Log("Player spawned at camp");
+            
+            // Set up camera to follow player
+            var mainCamera = Camera.main;
+            if (mainCamera != null)
             {
-                spawnPosition.y = hit.point.y + 1f;
-                Debug.Log($"Adjusted spawn position to: {spawnPosition}");
-            }
-
-            GameObject playerObject = Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
-            if (playerObject != null)
-            {
-                Debug.Log($"Player spawned successfully at: {playerObject.transform.position}");
-
-                // Ensure the player has all required components
-                UnityEngine.CharacterController controller = playerObject.GetComponent<UnityEngine.CharacterController>();
-                if (controller == null)
+                var cameraController = mainCamera.GetComponent<CameraController>();
+                if (cameraController != null)
                 {
-                    controller = playerObject.AddComponent<UnityEngine.CharacterController>();
-                    controller.height = 2f;
-                    controller.radius = 0.5f;
-                    controller.stepOffset = 0.3f;
-                    Debug.Log("Added CharacterController component to player");
-                }
-
-                ThirdPersonController thirdPersonController = playerObject.GetComponent<ThirdPersonController>();
-                if (thirdPersonController == null)
-                {
-                    thirdPersonController = playerObject.AddComponent<ThirdPersonController>();
-                    Debug.Log("Added ThirdPersonController component to player");
-                }
-
-                // Set up the player's camera
-                GameObject mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
-                if (mainCamera != null)
-                {
-                    CameraController cameraController = mainCamera.GetComponent<CameraController>();
-                    if (cameraController != null)
-                    {
-                        cameraController.SetTarget(playerObject.transform);
-                        Debug.Log("Set up camera to follow player");
-                    }
-                }
-
-                // Set up the player's input
-                PlayerInput playerInput = playerObject.GetComponent<PlayerInput>();
-                if (playerInput == null)
-                {
-                    playerInput = playerObject.AddComponent<PlayerInput>();
-                    playerInput.actions = Resources.Load<InputActionAsset>("PlayerInputActions");
-                    Debug.Log("Added PlayerInput component to player");
+                    cameraController.SetTarget(player.transform);
+                    Debug.Log("Camera set to follow player");
                 }
             }
-            else
+            
+            // Set up player stats
+            var playerController = player.GetComponent<ThirdPersonController>();
+            if (playerController != null)
             {
-                Debug.LogError("Failed to instantiate player prefab!");
+                // Get the PlayerCharacter component to set stats
+                var playerCharacter = player.GetComponent<PlayerCharacter>();
+                if (playerCharacter != null)
+                {
+                    playerCharacter.Stats = mainPlayer;
+                }
+                Debug.Log("Player stats set");
             }
         }
         else
         {
             Debug.LogError("Player prefab not assigned!");
         }
+
+        // Spawn NPCs
+        SpawnNPCs();
+    }
+
+    private void SpawnNPCs()
+    {
+        Debug.Log("Spawning NPCs");
+        
+        if (npcPrefab == null)
+        {
+            Debug.LogError("NPC prefab not assigned!");
+            return;
+        }
+
+        // Find NPC spawn points
+        var npcSpawnPoints = GameObject.FindGameObjectsWithTag("NPCSpawnPoint");
+        if (npcSpawnPoints.Length == 0)
+        {
+            Debug.LogWarning("No NPC spawn points found!");
+            return;
+        }
+
+        // Spawn NPCs at spawn points
+        for (int i = 0; i < npcSpawnPoints.Length; i++)
+        {
+            var spawnPoint = npcSpawnPoints[i];
+            if (spawnPoint != null)
+            {
+                GameObject npc = Instantiate(npcPrefab, spawnPoint.transform.position, spawnPoint.transform.rotation);
+                npc.name = $"NPC_{i + 1}";
+                
+                // Set up NPC stats
+                var npcCharacter = npc.GetComponent<NPCCharacter>();
+                if (npcCharacter != null)
+                {
+                    var npcStats = new CharacterStats();
+                    npcStats.perception = Random.Range(30, 101);
+                    npcStats.deception = Random.Range(30, 101);
+                    npcStats.persuasion = Random.Range(30, 101);
+                    npcStats.puzzleSolving = Random.Range(30, 101);
+                    npcStats.swimming = Random.Range(30, 101);
+                    npcStats.speed = Random.Range(30, 101);
+                    npcStats.strength = Random.Range(30, 101);
+                    npcStats.agility = Random.Range(30, 101);
+                    npcStats.intelligence = Random.Range(30, 101);
+                    npcStats.stamina = Random.Range(30, 101);
+                    npcStats.charisma = Random.Range(30, 101);
+                    npcStats.honesty = Random.Range(30, 101);
+                    npcStats.trust = Random.Range(30, 101);
+                    npcStats.honor = Random.Range(30, 101);
+                    
+                    npcCharacter.Stats = npcStats;
+                }
+                
+                Debug.Log($"NPC {i + 1} spawned at {spawnPoint.name}");
+            }
+        }
     }
 
     private void InitializeDialogueSystem()
     {
-        // Create dialogue UI if it doesn't exist
-        if (dialogueUIPrefab != null && FindObjectOfType<DialogueUI>() == null)
-        {
-            GameObject dialogueUI = Instantiate(dialogueUIPrefab);
-            dialogueUI.name = "DialogueUI";
-            DontDestroyOnLoad(dialogueUI);
-        }
-
-        // Create dialogue manager if it doesn't exist
+        Debug.Log("Initializing dialogue system");
+        
         if (dialogueManager == null)
         {
-            GameObject managerObj = new GameObject("DialogueManager");
-            dialogueManager = managerObj.AddComponent<DialogueManager>();
-            DontDestroyOnLoad(managerObj);
+            dialogueManager = FindObjectOfType<DialogueManager>();
         }
         
-        // Note: InteractableManager should be created manually in the scene
-        // Use the InteractableManagerCreator component if needed
+        if (dialogueManager == null)
+        {
+            Debug.LogWarning("No DialogueManager found - dialogue system not initialized");
+        }
+        else
+        {
+            Debug.Log("Dialogue system initialized");
+        }
+    }
+
+    private void InitializeChallengeSystem()
+    {
+        Debug.Log("Initializing challenge system");
+        
+        if (challengeManager == null)
+        {
+            challengeManager = FindObjectOfType<ChallengeManager>();
+        }
+        
+        if (challengeManager == null)
+        {
+            Debug.LogWarning("No ChallengeManager found - challenge system not initialized");
+        }
+        else
+        {
+            // Subscribe to challenge events
+            challengeManager.OnChallengeScheduled += OnChallengeScheduled;
+            challengeManager.OnChallengeStarted += OnChallengeStarted;
+            challengeManager.OnChallengeCompleted += OnChallengeCompleted;
+            challengeManager.OnImmunityGranted += OnImmunityGranted;
+            
+            Debug.Log("Challenge system initialized");
+        }
+    }
+
+    private void OnChallengeScheduled(ChallengeSession session)
+    {
+        Debug.Log($"Challenge scheduled: {session.challenge.challengeName} for Day {session.dayNumber}");
+        // Could show UI notification here
+    }
+
+    private void OnChallengeStarted(ChallengeSession session)
+    {
+        Debug.Log($"Challenge started: {session.challenge.challengeName}");
+        // Could show challenge start UI here
+    }
+
+    private void OnChallengeCompleted(ChallengeResult result)
+    {
+        Debug.Log($"Challenge completed: {result.challengeName} - Winner: {result.winningTribeName}");
+        // Could show results UI here
+    }
+
+    private void OnImmunityGranted(string tribeId)
+    {
+        Debug.Log($"Immunity granted to tribe: {tribeId}");
+        // Could show immunity notification here
     }
 } 

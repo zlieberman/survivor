@@ -4,7 +4,9 @@
     "references": [
         "Survivor.Common",
         "Survivor.Shared",
-        "StarterAssets"
+        "StarterAssets",
+        "Survivor.Characters",
+        "Crest"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

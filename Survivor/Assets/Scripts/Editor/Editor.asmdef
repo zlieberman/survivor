@@ -3,9 +3,8 @@
     "rootNamespace": "Survivor.Editor",
     "references": [
         "Survivor.Shared",
-        "Survivor.Challenges",
-        "Survivor.Interactables",
         "Survivor.Core",
+        "Survivor.Interactables",
         "Survivor.UI",
         "Unity.TextMeshPro",
         "Unity.InputSystem",

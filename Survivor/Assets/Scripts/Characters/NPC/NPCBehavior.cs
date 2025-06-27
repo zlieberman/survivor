@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using Survivor.Characters;
+using Survivor.Shared;
 using System.Collections;
 
 namespace Survivor.Characters
@@ -56,6 +57,12 @@ namespace Survivor.Characters
         public float waterAvoidanceDistance = 5f;
         public LayerMask waterLayer = 1 << 4; // Water layer
 
+        [Header("Sleep Cycle Settings")]
+        public int sleepTime = 20; // 8 PM - when NPCs start heading to bed
+        public int wakeTime = 6; // 6 AM - when NPCs wake up
+        public float sleepTransitionTime = 2f; // Time to transition to/from sleep state
+        public bool enableSleepCycle = true;
+
         [Header("Animation")]
         public Animator animator;
         public string speedParameterName = "Speed";
@@ -67,6 +74,7 @@ namespace Survivor.Characters
         private int _animIDJump;
         private int _animIDFreeFall;
         private int _animIDMotionSpeed;
+        private int _animIDSleep; // New sleep animation parameter
 
         [Header("Debug Visualization")]
         public bool enableDebugVisualization = true;
@@ -97,12 +105,23 @@ namespace Survivor.Characters
         private LayerMask actualWaterLayer;
         private bool isPaused = false; // New field to track pause state
 
+        // Sleep cycle variables
+        private bool isSleeping = false;
+        private bool isTransitioningToSleep = false;
+        private bool isTransitioningToWake = false;
+        private float sleepTransitionTimer = 0f;
+        private Vector3 sleepPosition; // Position where NPC will sleep
+        private Quaternion sleepRotation; // Rotation when sleeping
+
         // Behavior states
         private enum BehaviorState
         {
             Idle,
             Wandering,
-            ReturningToCamp
+            ReturningToCamp,
+            GoingToSleep,
+            Sleeping,
+            WakingUp
         }
         private BehaviorState currentState = BehaviorState.Idle;
 
@@ -229,6 +248,12 @@ namespace Survivor.Characters
 
         private void UpdateBehavior()
         {
+            // Check sleep cycle if enabled
+            if (enableSleepCycle)
+            {
+                CheckSleepCycle();
+            }
+
             switch (currentState)
             {
                 case BehaviorState.Idle:
@@ -240,6 +265,36 @@ namespace Survivor.Characters
                 case BehaviorState.ReturningToCamp:
                     UpdateReturningToCampState();
                     break;
+                case BehaviorState.GoingToSleep:
+                    UpdateGoingToSleepState();
+                    break;
+                case BehaviorState.Sleeping:
+                    UpdateSleepingState();
+                    break;
+                case BehaviorState.WakingUp:
+                    UpdateWakingUpState();
+                    break;
+            }
+        }
+
+        private void CheckSleepCycle()
+        {
+            if (!GameTimeService.HasTimeProvider) return;
+
+            var (currentHour, currentMinute, _) = GameTimeService.GetCurrentGameTime();
+            float currentTimeInHours = currentHour + (currentMinute / 60f);
+
+            // Check if it's time to go to sleep
+            if (currentHour == sleepTime && currentMinute == 0 && !isSleeping && !isTransitioningToSleep && currentState != BehaviorState.GoingToSleep)
+            {
+                Debug.Log($"[NPCBehavior] {gameObject.name} - It's {sleepTime}:00, time to go to sleep!");
+                SetGoingToSleepState();
+            }
+            // Check if it's time to wake up
+            else if (currentHour == wakeTime && currentMinute == 0 && isSleeping && !isTransitioningToWake)
+            {
+                Debug.Log($"[NPCBehavior] {gameObject.name} - It's {wakeTime}:00, time to wake up!");
+                SetWakingUpState();
             }
         }
 
@@ -318,6 +373,92 @@ namespace Survivor.Characters
             }
         }
 
+        private void UpdateGoingToSleepState()
+        {
+            // Check if agent is valid and on NavMesh
+            if (agent == null || !agent.isOnNavMesh)
+            {
+                SetSleepingState();
+                return;
+            }
+
+            // Check if we've reached the sleep position
+            if (agent != null && agent.isOnNavMesh && agent.remainingDistance <= agent.stoppingDistance)
+            {
+                Debug.Log($"[NPCBehavior] {gameObject.name} has reached sleep position, starting sleep transition");
+                // Start transition to sleep
+                isTransitioningToSleep = true;
+                sleepTransitionTimer = sleepTransitionTime;
+                SetSleepingState();
+            }
+        }
+
+        private void SetGoingToSleepState()
+        {
+            currentState = BehaviorState.GoingToSleep;
+            isIdle = false;
+            isWandering = false;
+
+            // Find a good sleep position near the camp
+            Vector3 targetSleepPosition = FindSleepPosition();
+            sleepPosition = targetSleepPosition;
+            sleepRotation = Quaternion.LookRotation(Vector3.forward); // Default forward direction
+
+            Debug.Log($"[NPCBehavior] {gameObject.name} heading to sleep position: {targetSleepPosition}");
+
+            // Only set destination if agent is valid and on NavMesh
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.SetDestination(targetSleepPosition);
+            }
+            else
+            {
+                // If agent is not valid, just go to sleep immediately
+                Debug.Log($"[NPCBehavior] {gameObject.name} agent not valid, going to sleep immediately");
+                SetSleepingState();
+            }
+        }
+
+        private void UpdateSleepingState()
+        {
+            // Handle sleep transition
+            if (isTransitioningToSleep)
+            {
+                sleepTransitionTimer -= Time.deltaTime;
+                if (sleepTransitionTimer <= 0)
+                {
+                    isTransitioningToSleep = false;
+                    isSleeping = true;
+                    Debug.Log($"[NPCBehavior] {gameObject.name} is now sleeping");
+                }
+            }
+
+            // While sleeping, don't do anything else
+            // The sleep cycle check will handle waking up
+            // Make sure the NPC stays at the sleep position
+            if (sleepPosition != Vector3.zero && isSleeping)
+            {
+                transform.position = sleepPosition;
+                transform.rotation = sleepRotation;
+            }
+        }
+
+        private void UpdateWakingUpState()
+        {
+            // Handle wake transition
+            if (isTransitioningToWake)
+            {
+                sleepTransitionTimer -= Time.deltaTime;
+                if (sleepTransitionTimer <= 0)
+                {
+                    isTransitioningToWake = false;
+                    isSleeping = false;
+                    Debug.Log($"[NPCBehavior] {gameObject.name} has woken up");
+                    SetIdleState();
+                }
+            }
+        }
+
         private void SetIdleState()
         {
             currentState = BehaviorState.Idle;
@@ -379,6 +520,85 @@ namespace Survivor.Characters
                 // If agent is not valid, just go idle
                 SetIdleState();
             }
+        }
+
+        private void SetSleepingState()
+        {
+            currentState = BehaviorState.Sleeping;
+            isIdle = false;
+            isWandering = false;
+
+            // Stop movement
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.ResetPath();
+            }
+
+            // Position NPC at sleep position
+            if (sleepPosition != Vector3.zero)
+            {
+                transform.position = sleepPosition;
+                transform.rotation = sleepRotation;
+            }
+        }
+
+        private void SetWakingUpState()
+        {
+            currentState = BehaviorState.WakingUp;
+            isTransitioningToWake = true;
+            sleepTransitionTimer = sleepTransitionTime;
+        }
+
+        private Vector3 FindSleepPosition()
+        {
+            Vector3 basePosition = campPosition.HasValue ? campPosition.Value : startPosition;
+            
+            // Try to find a position near the camp for sleeping
+            for (int attempts = 0; attempts < 10; attempts++)
+            {
+                // Generate random position within a smaller radius around camp
+                Vector3 randomOffset = Random.insideUnitSphere * (wanderRadius * 0.3f);
+                Vector3 testPosition = basePosition + randomOffset;
+                
+                // Sample position on NavMesh
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(testPosition, out hit, wanderRadius * 0.3f, NavMesh.AllAreas))
+                {
+                    // Check if position is valid and not too close to other NPCs
+                    if (IsValidSleepPosition(hit.position))
+                    {
+                        return hit.position;
+                    }
+                }
+            }
+            
+            // Fallback to camp position or start position
+            return campPosition.HasValue ? campPosition.Value : startPosition;
+        }
+
+        private bool IsValidSleepPosition(Vector3 position)
+        {
+            // Check for other NPCs in the area
+            Collider[] colliders = Physics.OverlapSphere(position, minDistanceToOtherNPCs);
+            foreach (var collider in colliders)
+            {
+                if (collider.gameObject != gameObject && collider.GetComponent<NPCBehavior>() != null)
+                {
+                    return false;
+                }
+            }
+
+            // Check for water if avoiding water
+            if (avoidWater)
+            {
+                Collider[] waterColliders = Physics.OverlapSphere(position, waterAvoidanceDistance, actualWaterLayer);
+                if (waterColliders.Length > 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private bool SetNewDestination()
@@ -521,22 +741,41 @@ namespace Survivor.Characters
         {
             if (animator != null)
             {
-                // Use actual movement velocity from transform for more accurate animation
-                Vector3 movementVelocity = (transform.position - previousPosition) / Time.deltaTime;
-                float speed = movementVelocity.magnitude;
+                // Simple sleep logic: set sleep to true when sleeping or going to sleep
+                bool shouldBeSleeping = isSleeping || currentState == BehaviorState.GoingToSleep;
                 
-                // Fallback to agent velocity if transform movement is too small
-                if (speed < 0.1f && agent != null && agent.isOnNavMesh)
+                // Set the sleep parameter
+                animator.SetBool(_animIDSleep, shouldBeSleeping);
+                                
+                // Set other animation parameters
+                if (shouldBeSleeping)
                 {
-                    speed = agent.velocity.magnitude;
+                    // When sleeping, set movement parameters to 0
+                    animator.SetFloat(_animIDSpeed, 0f);
+                    animator.SetFloat(_animIDMotionSpeed, 0f);
+                    animator.SetBool(_animIDGrounded, true);
+                    animator.SetBool(_animIDJump, false);
+                    animator.SetBool(_animIDFreeFall, false);
                 }
-                
-                // Set animation parameters using IDs (matching ThirdPersonController)
-                animator.SetFloat(_animIDSpeed, speed);
-                animator.SetFloat(_animIDMotionSpeed, speed > 0.1f ? 1f : 0f);
-                animator.SetBool(_animIDGrounded, true); // NPCs are always grounded
-                animator.SetBool(_animIDJump, false);
-                animator.SetBool(_animIDFreeFall, false);
+                else
+                {
+                    // Use actual movement velocity from transform for more accurate animation
+                    Vector3 movementVelocity = (transform.position - previousPosition) / Time.deltaTime;
+                    float speed = movementVelocity.magnitude;
+                    
+                    // Fallback to agent velocity if transform movement is too small
+                    if (speed < 0.1f && agent != null && agent.isOnNavMesh)
+                    {
+                        speed = agent.velocity.magnitude;
+                    }
+                    
+                    // Set animation parameters using IDs (matching ThirdPersonController)
+                    animator.SetFloat(_animIDSpeed, speed);
+                    animator.SetFloat(_animIDMotionSpeed, speed > 0.1f ? 1f : 0f);
+                    animator.SetBool(_animIDGrounded, true); // NPCs are always grounded
+                    animator.SetBool(_animIDJump, false);
+                    animator.SetBool(_animIDFreeFall, false);
+                }
             }
             previousPosition = transform.position;
         }
@@ -589,6 +828,7 @@ namespace Survivor.Characters
         public bool IsWandering => isWandering;
         public bool IsIdle => isIdle;
         public bool IsPaused => isPaused;
+        public bool IsSleeping => isSleeping;
         public Vector3? CurrentDestination => (agent != null && agent.isOnNavMesh && agent.hasPath) ? agent.destination : null;
         public bool IsReady => agent != null && agent.isOnNavMesh && enabled;
 
@@ -637,6 +877,20 @@ namespace Survivor.Characters
         {
             Debug.Log($"[NPCBehavior] Returning to camp for {gameObject.name}");
             SetReturningToCampState();
+        }
+
+        [ContextMenu("Test Sleep Cycle")]
+        public void TestSleepCycle()
+        {
+            Debug.Log($"[NPCBehavior] Testing sleep cycle for {gameObject.name}");
+            SetGoingToSleepState();
+        }
+
+        [ContextMenu("Test Wake Up")]
+        public void TestWakeUp()
+        {
+            Debug.Log($"[NPCBehavior] Testing wake up for {gameObject.name}");
+            SetWakingUpState();
         }
 
         [ContextMenu("Wait for NavMesh")]
@@ -810,6 +1064,14 @@ namespace Survivor.Characters
             if (showAgentInfo)
             {
                 DrawAgentInfo();
+            }
+
+            // Draw sleep position if sleeping
+            if (isSleeping && sleepPosition != Vector3.zero)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(sleepPosition, 0.5f);
+                Gizmos.DrawLine(transform.position, sleepPosition);
             }
         }
 
@@ -1060,6 +1322,7 @@ namespace Survivor.Characters
             _animIDJump = Animator.StringToHash("Jump");
             _animIDFreeFall = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
+            _animIDSleep = Animator.StringToHash("Sleep"); // New sleep parameter
         }
 
         private void CreateNPCAnimatorController()
@@ -1079,6 +1342,283 @@ namespace Survivor.Characters
             {
                 Debug.Log($"[NPCBehavior] Using animator controller: {animator.runtimeAnimatorController.name} for {gameObject.name}");
             }
+        }
+
+        [ContextMenu("Test Sleep Animation")]
+        public void TestSleepAnimation()
+        {
+            if (animator != null)
+            {
+                Debug.Log($"[NPCBehavior] Testing sleep animation for {gameObject.name}");
+                Debug.Log($"[NPCBehavior] Current sleep parameter: {animator.GetBool(_animIDSleep)}");
+                Debug.Log($"[NPCBehavior] Setting sleep parameter to true");
+                animator.SetBool(_animIDSleep, true);
+                Debug.Log($"[NPCBehavior] Sleep parameter after setting: {animator.GetBool(_animIDSleep)}");
+            }
+            else
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+            }
+        }
+
+        [ContextMenu("Test Wake Animation")]
+        public void TestWakeAnimation()
+        {
+            if (animator != null)
+            {
+                Debug.Log($"[NPCBehavior] Testing wake animation for {gameObject.name}");
+                Debug.Log($"[NPCBehavior] Current sleep parameter: {animator.GetBool(_animIDSleep)}");
+                Debug.Log($"[NPCBehavior] Setting sleep parameter to false");
+                animator.SetBool(_animIDSleep, false);
+                Debug.Log($"[NPCBehavior] Sleep parameter after setting: {animator.GetBool(_animIDSleep)}");
+            }
+            else
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+            }
+        }
+
+        [ContextMenu("Debug Animation Parameters")]
+        public void DebugAnimationParameters()
+        {
+            if (animator != null)
+            {
+                Debug.Log($"[NPCBehavior] === Animation Debug for {gameObject.name} ===");
+                Debug.Log($"[NPCBehavior] Sleep parameter: {animator.GetBool(_animIDSleep)}");
+                Debug.Log($"[NPCBehavior] Speed parameter: {animator.GetFloat(_animIDSpeed)}");
+                Debug.Log($"[NPCBehavior] MotionSpeed parameter: {animator.GetFloat(_animIDMotionSpeed)}");
+                Debug.Log($"[NPCBehavior] Grounded parameter: {animator.GetBool(_animIDGrounded)}");
+                Debug.Log($"[NPCBehavior] Jump parameter: {animator.GetBool(_animIDJump)}");
+                Debug.Log($"[NPCBehavior] FreeFall parameter: {animator.GetBool(_animIDFreeFall)}");
+                Debug.Log($"[NPCBehavior] Current state: {currentState}");
+                Debug.Log($"[NPCBehavior] Is sleeping: {isSleeping}");
+                Debug.Log($"[NPCBehavior] Is transitioning to sleep: {isTransitioningToSleep}");
+                Debug.Log($"[NPCBehavior] Is transitioning to wake: {isTransitioningToWake}");
+                Debug.Log($"[NPCBehavior] === End Animation Debug ===");
+            }
+            else
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+            }
+        }
+
+        [ContextMenu("Force Sleep State")]
+        public void ForceSleepState()
+        {
+            Debug.Log($"[NPCBehavior] Forcing sleep state for {gameObject.name}");
+            isSleeping = true;
+            isTransitioningToSleep = false;
+            isTransitioningToWake = false;
+            currentState = BehaviorState.Sleeping;
+            
+            // Position NPC at sleep position if available
+            if (sleepPosition != Vector3.zero)
+            {
+                transform.position = sleepPosition;
+                transform.rotation = sleepRotation;
+            }
+            
+            // Stop movement
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.ResetPath();
+            }
+        }
+
+        [ContextMenu("Force Wake State")]
+        public void ForceWakeState()
+        {
+            Debug.Log($"[NPCBehavior] Forcing wake state for {gameObject.name}");
+            isSleeping = false;
+            isTransitioningToSleep = false;
+            isTransitioningToWake = false;
+            currentState = BehaviorState.Idle;
+            SetIdleState();
+        }
+
+        [ContextMenu("Test Complete Sleep Cycle")]
+        public void TestCompleteSleepCycle()
+        {
+            Debug.Log($"[NPCBehavior] === Testing Complete Sleep Cycle for {gameObject.name} ===");
+            
+            if (animator == null)
+            {
+                Debug.LogError($"[NPCBehavior] No animator found on {gameObject.name}");
+                return;
+            }
+            
+            // Test 1: Set sleep to true
+            Debug.Log($"[NPCBehavior] Step 1: Setting sleep to true");
+            animator.SetBool(_animIDSleep, true);
+            Debug.Log($"[NPCBehavior] Sleep parameter after setting to true: {animator.GetBool(_animIDSleep)}");
+            
+            // Wait a moment and check again
+            StartCoroutine(TestSleepCycleCoroutine());
+        }
+        
+        private IEnumerator TestSleepCycleCoroutine()
+        {
+            yield return new WaitForSeconds(1f);
+            
+            Debug.Log($"[NPCBehavior] Step 2: After 1 second, sleep parameter: {animator.GetBool(_animIDSleep)}");
+            
+            // Test 2: Set sleep to false
+            Debug.Log($"[NPCBehavior] Step 3: Setting sleep to false");
+            animator.SetBool(_animIDSleep, false);
+            Debug.Log($"[NPCBehavior] Sleep parameter after setting to false: {animator.GetBool(_animIDSleep)}");
+            
+            yield return new WaitForSeconds(1f);
+            
+            Debug.Log($"[NPCBehavior] Step 4: After another second, sleep parameter: {animator.GetBool(_animIDSleep)}");
+            Debug.Log($"[NPCBehavior] === End Sleep Cycle Test ===");
+        }
+
+        [ContextMenu("Check Current Animator State")]
+        public void CheckCurrentAnimatorState()
+        {
+            if (animator == null)
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+                return;
+            }
+            
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            Debug.Log($"[NPCBehavior] === Animator State Info for {gameObject.name} ===");
+            
+            // Determine the state name
+            string stateName = "Unknown";
+            if (stateInfo.IsName("Idle Walk Run Blend"))
+                stateName = "Idle Walk Run Blend";
+            else if (stateInfo.IsName("LyingDown"))
+                stateName = "LyingDown";
+            else if (stateInfo.IsName("StandingUp"))
+                stateName = "StandingUp";
+            
+            Debug.Log($"[NPCBehavior] Current state name: {stateInfo.fullPathHash} ({stateName})");
+            Debug.Log($"[NPCBehavior] State normalized time: {stateInfo.normalizedTime}");
+            Debug.Log($"[NPCBehavior] State length: {stateInfo.length}");
+            Debug.Log($"[NPCBehavior] Sleep parameter: {animator.GetBool(_animIDSleep)}");
+            Debug.Log($"[NPCBehavior] Current behavior state: {currentState}");
+            Debug.Log($"[NPCBehavior] Is sleeping: {isSleeping}");
+            Debug.Log($"[NPCBehavior] === End Animator State Info ===");
+        }
+
+        [ContextMenu("Force Immediate Sleep Transition")]
+        public void ForceImmediateSleepTransition()
+        {
+            if (animator == null)
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+                return;
+            }
+            
+            Debug.Log($"[NPCBehavior] Forcing immediate sleep transition for {gameObject.name}");
+            
+            // Force the animator to update immediately
+            animator.Update(0f);
+            
+            // Set sleep to true
+            animator.SetBool(_animIDSleep, true);
+            
+            // Force another update
+            animator.Update(0f);
+            
+            Debug.Log($"[NPCBehavior] Sleep parameter after force transition: {animator.GetBool(_animIDSleep)}");
+            
+            // Check current state
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            Debug.Log($"[NPCBehavior] Current state after force transition: {stateInfo.fullPathHash}");
+        }
+
+        [ContextMenu("Force Immediate Wake Transition")]
+        public void ForceImmediateWakeTransition()
+        {
+            if (animator == null)
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+                return;
+            }
+            
+            Debug.Log($"[NPCBehavior] Forcing immediate wake transition for {gameObject.name}");
+            
+            // Force the animator to update immediately
+            animator.Update(0f);
+            
+            // Set sleep to false
+            animator.SetBool(_animIDSleep, false);
+            
+            // Force another update
+            animator.Update(0f);
+            
+            Debug.Log($"[NPCBehavior] Sleep parameter after force transition: {animator.GetBool(_animIDSleep)}");
+            
+            // Check current state
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            Debug.Log($"[NPCBehavior] Current state after force transition: {stateInfo.fullPathHash}");
+        }
+
+        [ContextMenu("Validate Animator Controller")]
+        public void ValidateAnimatorController()
+        {
+            if (animator == null)
+            {
+                Debug.LogWarning($"[NPCBehavior] No animator found on {gameObject.name}");
+                return;
+            }
+            
+            Debug.Log($"[NPCBehavior] === Animator Controller Validation for {gameObject.name} ===");
+            
+            // Check if animator controller exists
+            if (animator.runtimeAnimatorController == null)
+            {
+                Debug.LogError($"[NPCBehavior] No runtime animator controller found!");
+                return;
+            }
+            
+            Debug.Log($"[NPCBehavior] Animator controller: {animator.runtimeAnimatorController.name}");
+            
+            // Check parameters
+            var controller = animator.runtimeAnimatorController as UnityEditor.Animations.AnimatorController;
+            if (controller != null)
+            {
+                Debug.Log($"[NPCBehavior] Parameters in controller:");
+                foreach (var param in controller.parameters)
+                {
+                    Debug.Log($"[NPCBehavior] - {param.name} ({param.type})");
+                }
+                
+                // Check if Sleep parameter exists
+                bool hasSleepParam = false;
+                foreach (var param in controller.parameters)
+                {
+                    if (param.name == "Sleep")
+                    {
+                        hasSleepParam = true;
+                        Debug.Log($"[NPCBehavior] Found Sleep parameter: {param.name} ({param.type})");
+                        break;
+                    }
+                }
+                
+                if (!hasSleepParam)
+                {
+                    Debug.LogError($"[NPCBehavior] Sleep parameter not found in animator controller!");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[NPCBehavior] Could not access animator controller parameters (not in editor mode)");
+            }
+            
+            // Check current state
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            Debug.Log($"[NPCBehavior] Current state: {stateInfo.fullPathHash}");
+            Debug.Log($"[NPCBehavior] State normalized time: {stateInfo.normalizedTime}");
+            
+            // Check if we can transition to sleep states
+            Debug.Log($"[NPCBehavior] Can transition to LyingDown: {stateInfo.IsName("LyingDown")}");
+            Debug.Log($"[NPCBehavior] Can transition to StandingUp: {stateInfo.IsName("StandingUp")}");
+            
+            Debug.Log($"[NPCBehavior] === End Animator Controller Validation ===");
         }
     }
 } 

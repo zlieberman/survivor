@@ -2151,8 +2151,8 @@ GameObject:
   - component: {fileID: 6200898292120809921}
   - component: {fileID: 7683241055763377585}
   - component: {fileID: 3443442444041814524}
-  - component: {fileID: 3012564464217651362}
   - component: {fileID: 2923010796074934616}
+  - component: {fileID: -9200773971736473674}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -2442,26 +2442,6 @@ MonoBehaviour:
   isInChallenge: 0
   gender: 0
   maxWeight: 20
---- !u!114 &3012564464217651362
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7683241055763377597}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c45043b2e481342439dfc94967d6a76d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  setupOnStart: 1
-  addSwimmingComponent: 1
-  swimSpeed: 4
-  swimUpSpeed: 3
-  swimDownSpeed: 2
-  swimThreshold: 0.67
-  swimGravity: -2
-  buoyancyForce: 2
 --- !u!114 &2923010796074934616
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2474,6 +2454,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efe3ea907e7df4edebccae457aa83674, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &-9200773971736473674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7683241055763377597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e11b9ae2909454aef951b266565b899a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  swimSpeed: 4
+  swimUpSpeed: 3
+  swimDownSpeed: 2
+  waterDrag: 0.8
+  swimDepthThreshold: 1
+  swimGravity: -2
+  normalGravity: -15
+  buoyancyForce: 2
+  detectionRadius: 1
+  detectionHeight: 2
+  waterLayer:
+    serializedVersion: 2
+    m_Bits: 17
+  showDebugGizmos: 0
 --- !u!1 &7758694408128837486
 GameObject:
   m_ObjectHideFlags: 0

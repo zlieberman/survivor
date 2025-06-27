@@ -9,11 +9,11 @@
         "Survivor.Shared",
         "Survivor.Shared.Interfaces",
         "Survivor.Items",
-        "Survivor.Environment",
         "Unity.AI.Navigation",
         "Unity.AI.Navigation.Editor",
         "Unity.InputSystem",
-        "StarterAssets"
+        "StarterAssets",
+        "Crest"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -61,7 +61,6 @@ namespace Survivor.Generation
         public float defaultIslandHeight = 0.3f;
 
         [Header("Water Settings")]
-        public Material waterMaterial;
         public float waterHeight = 0.1f; // 10% of max height
 
         private Terrain terrain;
@@ -121,9 +120,6 @@ namespace Survivor.Generation
                 terrain.materialTemplate = defaultMat;
             }
 
-            // Create water plane
-            CreateWaterPlane();
-
             // Add terrain collider if missing
             TerrainCollider terrainCollider = GetComponent<TerrainCollider>();
             if (terrainCollider == null)
@@ -139,56 +135,6 @@ namespace Survivor.Generation
             isInitialized = true;
         }
 
-        private void CreateWaterPlane()
-        {
-            // Remove existing water plane if it exists
-            if (waterPlane != null)
-            {
-                DestroyImmediate(waterPlane);
-            }
-
-            // Create water plane
-            waterPlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            waterPlane.name = "Water";
-            waterPlane.transform.parent = transform;
-
-            // Scale the plane to match terrain size, accounting for GameObject scale
-            float scaledTerrainSize = terrainSize * transform.localScale.x;
-            float planeScale = scaledTerrainSize / 10f; // Default plane is 10x10 units
-            waterPlane.transform.localScale = new Vector3(planeScale, 1, planeScale);
-
-            // Position the plane at water height
-            waterPlane.transform.position = new Vector3(0, maxHeight * waterHeight * transform.localScale.y, 0);
-
-            // Apply water material
-            MeshRenderer waterRenderer = waterPlane.GetComponent<MeshRenderer>();
-            if (waterMaterial != null)
-            {
-                waterRenderer.material = waterMaterial;
-            }
-            else
-            {
-                // Create a default water material if none is assigned
-                Material defaultWaterMat = new Material(Shader.Find("Standard"));
-                defaultWaterMat.color = new Color(0.2f, 0.5f, 0.8f, 0.6f);
-                defaultWaterMat.SetFloat("_Glossiness", 0.9f);
-                defaultWaterMat.SetFloat("_Metallic", 0.0f);
-                defaultWaterMat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                defaultWaterMat.renderQueue = 3000;
-                waterRenderer.material = defaultWaterMat;
-            }
-
-            // Remove the default collider and add our own
-            DestroyImmediate(waterPlane.GetComponent<Collider>());
-            BoxCollider waterCollider = waterPlane.AddComponent<BoxCollider>();
-            waterCollider.isTrigger = true; // Make it a trigger so objects can enter it
-            waterCollider.size = new Vector3(1, 0.1f, 1); // Thin collider for water surface
-
-            // Add water behavior script
-            WaterBehavior waterBehavior = waterPlane.AddComponent<WaterBehavior>();
-            waterBehavior.waterHeight = maxHeight * waterHeight * transform.localScale.y;
-        }
-
         public void GenerateIsland()
         {
             if (!isInitialized)
@@ -201,26 +147,36 @@ namespace Survivor.Generation
             float[,] heights = new float[resolution, resolution];
 
             Vector2 center = new Vector2(resolution / 2f, resolution / 2f);
-            float radius = resolution * 0.4f; // Island takes up 80% of the terrain
+            float maxRadius = resolution * 0.5f; // Use 50% of terrain for full radius calculation
             float flatHeight = defaultIslandHeight; // Constant height for the flat part of the island
+            float waterLevel = waterHeight; // Water level as a fraction of max height
 
             for (int y = 0; y < resolution; y++)
             {
                 for (int x = 0; x < resolution; x++)
                 {
-                    // Calculate distance from center (normalized)
-                    float distanceFromCenter = Vector2.Distance(new Vector2(x, y), center) / radius;
+                    // Calculate distance from center (normalized to maxRadius)
+                    float distanceFromCenter = Vector2.Distance(new Vector2(x, y), center) / maxRadius;
                     
-                    if (distanceFromCenter <= 0.75f) // Inner 80% of the radius is completely flat
+                    if (distanceFromCenter <= 0.3f) // Inner 30% is the main playable island (flat)
                     {
                         heights[y, x] = flatHeight;
                     }
-                    else // Create a smooth falloff at the edges
+                    else if (distanceFromCenter <= 0.6f) // 30% to 60% is gradual slope to water
                     {
-                        float falloff = 1 - ((distanceFromCenter - 0.75f) / 0.2f); // Smooth transition in the outer 20%
-                        falloff = Mathf.Clamp01(falloff);
-                        falloff = Mathf.Pow(falloff, 2); // Squared for smoother falloff
-                        heights[y, x] = flatHeight * falloff;
+                        float slopeProgress = (distanceFromCenter - 0.3f) / 0.3f;
+                        // Smooth curve from flat to water level
+                        float smoothProgress = Mathf.SmoothStep(0f, 1f, slopeProgress);
+                        heights[y, x] = Mathf.Lerp(flatHeight, waterLevel, smoothProgress);
+                    }
+                    else // 60% to 100% is underwater with smooth falloff to deep water
+                    {
+                        float underwaterProgress = (distanceFromCenter - 0.6f) / 0.4f;
+                        // Smooth curve that goes deeper as we move outward
+                        float smoothProgress = Mathf.SmoothStep(0f, 1f, underwaterProgress);
+                        // Create deeper water as we move away from the island
+                        float deepWaterDepth = -0.3f; // Negative value for underwater
+                        heights[y, x] = Mathf.Lerp(waterLevel, deepWaterDepth, smoothProgress);
                     }
                 }
             }

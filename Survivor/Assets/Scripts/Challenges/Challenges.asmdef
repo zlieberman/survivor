@@ -1,0 +1,20 @@
+{
+    "name": "Survivor.Challenges",
+    "rootNamespace": "Survivor.Challenges",
+    "references": [
+        "GUID:75469ad4d38634e559750d17036d5f7c",
+        "Survivor.Shared",
+        "Survivor.Characters",
+        "StarterAssets",
+        "Survivor.GameManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+} 
