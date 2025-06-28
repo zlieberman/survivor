@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using Survivor.Shared;
 using Survivor.Characters.UI;
+using Survivor.Characters.Core;
 
 namespace Survivor.Characters
 {
@@ -86,6 +87,28 @@ namespace Survivor.Characters
             }
         }
 
+        // Property to access speed stat with change detection
+        public float SpeedStat
+        {
+            get => stats?.speed ?? 0f;
+            set
+            {
+                if (stats != null)
+                {
+                    float oldSpeed = stats.speed;
+                    stats.speed = Mathf.Clamp(value, 0f, 100f);
+                    Debug.Log($"[Character] Speed stat changed for {characterName}: {oldSpeed} -> {stats.speed}");
+                    
+                    // Trigger stat modifier update
+                    var statModifier = GetComponent<CharacterStatModifier>();
+                    if (statModifier != null)
+                    {
+                        statModifier.RefreshAllModifiers();
+                    }
+                }
+            }
+        }
+
         protected NameTag nameTag;
         protected bool isPlayerInRange = false;
         protected virtual void Awake()
@@ -136,6 +159,9 @@ namespace Survivor.Characters
                 Debug.Log($"[Character] Using existing stats for {gameObject.name}");
             }
 
+            // Ensure speed stat is initialized
+            EnsureSpeedStatInitialized();
+
             // Set the name tag
             if (nameTag != null)
             {
@@ -147,6 +173,29 @@ namespace Survivor.Characters
             }
 
             Debug.Log($"[Character] Initialization complete for {gameObject.name}. Current values - Name: {characterName}, Tribe: {tribeName}, IsPlayer: {isPlayer}, Gender: {gender}");
+        }
+
+        protected virtual void EnsureSpeedStatInitialized()
+        {
+            // Only initialize speed if it's 0 (default value) and this is a player character
+            if (stats.speed == 0 && isPlayer)
+            {
+                // Generate speed using normal distribution for players
+                stats.speed = GenerateNormalRandom(50, 30);
+                Debug.Log($"[Character] Generated speed stat for {characterName}: {stats.speed:F1}");
+            }
+        }
+
+        protected float GenerateNormalRandom(int mean, int stdDev)
+        {
+            // Box-Muller transform for normal distribution
+            float u1 = Random.value;
+            float u2 = Random.value;
+            float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) * Mathf.Cos(2.0f * Mathf.PI * u2);
+            float randNormal = mean + stdDev * randStdNormal;
+            
+            // Clamp to 0-100 range
+            return Mathf.Clamp(randNormal, 0f, 100f);
         }
 
         public void UpdateRelationship(string otherCharacterName, float delta)
@@ -182,6 +231,57 @@ namespace Survivor.Characters
         public virtual void OnDialogueEnd()
         {
             // Notify any listeners that dialogue has ended
+        }
+
+        // Public method to manually set speed stat and update speed controller
+        public void SetSpeedStat(float newSpeedStat)
+        {
+            stats.speed = Mathf.Clamp(newSpeedStat, 0f, 100f);
+            Debug.Log($"[Character] Manually set speed stat for {characterName}: {stats.speed:F1}");
+            
+            // Trigger stat modifier update
+            var statModifier = GetComponent<CharacterStatModifier>();
+            if (statModifier != null)
+            {
+                statModifier.RefreshAllModifiers();
+            }
+        }
+
+        // Generic method to set any stat and trigger updates
+        public void SetStat(string statName, float newValue)
+        {
+            float clampedValue = Mathf.Clamp(newValue, 0f, 100f);
+            
+            switch (statName.ToLower())
+            {
+                case "speed":
+                    stats.speed = clampedValue;
+                    break;
+                case "strength":
+                    stats.strength = clampedValue;
+                    break;
+                case "stamina":
+                    stats.stamina = clampedValue;
+                    break;
+                case "agility":
+                    stats.agility = clampedValue;
+                    break;
+                case "swimming":
+                    stats.swimming = clampedValue;
+                    break;
+                default:
+                    Debug.LogWarning($"[Character] Unknown stat: {statName}");
+                    return;
+            }
+            
+            Debug.Log($"[Character] Manually set {statName} stat for {characterName}: {clampedValue:F1}");
+            
+            // Trigger stat modifier update
+            var statModifier = GetComponent<CharacterStatModifier>();
+            if (statModifier != null)
+            {
+                statModifier.RefreshAllModifiers();
+            }
         }
     }
 } 

@@ -379,6 +379,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4416926081852918481, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8129557102535241717}
+    - targetCorrespondingSourceObject: {fileID: 4416926081852918481, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9022782851216903909}
   m_SourcePrefab: {fileID: 100100000, guid: 64dce48905ffd9b4293e595fa6941544, type: 3}
 --- !u!1 &7683241055763377597 stripped
 GameObject:
@@ -425,3 +428,44 @@ MonoBehaviour:
   playerLayer:
     serializedVersion: 2
     m_Bits: 128
+--- !u!114 &9022782851216903909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7683241055763377597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df7bbc74bdaab464ab2f0ea127e990c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  statModifiers:
+  - statName: Speed
+    controllerField: Move Speed
+    minValue: 2
+    maxValue: 6
+    multiplier: 1
+    useNormalDistribution: 1
+    distributionCenter: 0.5
+    distributionSpread: 0.3
+    offset: 0
+  - statName: Speed
+    controllerField: Sprint Speed
+    minValue: 8
+    maxValue: 15
+    multiplier: 1
+    useNormalDistribution: 1
+    distributionCenter: 0.5
+    distributionSpread: 0.3
+    offset: 0
+  - statName: Strength
+    controllerField: Max Crawl Speed
+    minValue: 3
+    maxValue: 7
+    multiplier: 1
+    useNormalDistribution: 1
+    distributionCenter: 0.5
+    distributionSpread: 0.3
+    offset: 0
+  useDefaultModifiers: 1

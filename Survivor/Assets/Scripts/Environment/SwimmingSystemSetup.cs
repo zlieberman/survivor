@@ -90,8 +90,6 @@ namespace Survivor.Environment
             if (characterType.Contains("Player"))
             {
                 // Player settings - more responsive
-                swimming.waterSpeedMultiplier = 0.7f;
-                swimming.swimSpeedMultiplier = 0.5f;
                 swimming.swimGravity = -2f;
                 swimming.swimDepthThreshold = 0.9f;
                 swimming.showDebug = true; // Show debug for player
@@ -99,11 +97,17 @@ namespace Survivor.Environment
             else
             {
                 // NPC settings - more conservative
-                swimming.waterSpeedMultiplier = 0.6f;
-                swimming.swimSpeedMultiplier = 0.4f;
                 swimming.swimGravity = -1.5f;
                 swimming.swimDepthThreshold = 1.1f;
                 swimming.showDebug = false; // Hide debug for NPCs
+            }
+
+            // Note: Swimming speed is now controlled by CharacterStatModifier component
+            // Make sure the character has a CharacterStatModifier with a swimming stat modifier configured
+            var statModifier = character.GetComponent<Characters.Core.CharacterStatModifier>();
+            if (statModifier == null)
+            {
+                Debug.LogWarning($"[SwimmingSystemSetup] {characterType} should have a CharacterStatModifier component to control swimming speed based on stats");
             }
         }
 
@@ -116,6 +120,7 @@ namespace Survivor.Environment
             {
                 var swimming = playerObject.GetComponent<CharacterSwimming>();
                 var controller = playerObject.GetComponent<UnityEngine.CharacterController>();
+                var statModifier = playerObject.GetComponent<Characters.Core.CharacterStatModifier>();
                 
                 // Check for both possible ThirdPersonController types
                 var thirdPersonController = playerObject.GetComponent<StarterAssets.ThirdPersonController>();
@@ -134,6 +139,10 @@ namespace Survivor.Environment
                     Debug.LogError("[SwimmingSystemSetup] Player missing CharacterController component!");
                     setupComplete = false;
                 }
+                if (statModifier == null)
+                {
+                    Debug.LogWarning("[SwimmingSystemSetup] Player missing CharacterStatModifier component - swimming speed will use default values");
+                }
                 if (thirdPersonController == null)
                 {
                     Debug.LogWarning("[SwimmingSystemSetup] Player missing ThirdPersonController component - swimming will still work but movement speed adjustments may not function");
@@ -150,6 +159,7 @@ namespace Survivor.Environment
             {
                 Debug.Log("[SwimmingSystemSetup] Swimming system setup complete! Characters will automatically detect water and swim when needed.");
                 Debug.Log("[SwimmingSystemSetup] Remember to: 1) Create a 'Water' layer, 2) Add colliders to water objects, 3) Set water objects to the Water layer");
+                Debug.Log("[SwimmingSystemSetup] Note: Swimming speed is now controlled by CharacterStatModifier component - configure swimming stat modifiers for optimal control");
             }
             else
             {

@@ -12,6 +12,7 @@ namespace StarterAssets
 		public Vector2 look;
 		public bool jump;
 		public bool sprint;
+		public bool crawl;
 
 		[Header("Movement Settings")]
 		public bool analogMovement;
@@ -43,6 +44,11 @@ namespace StarterAssets
 		{
 			SprintInput(value.isPressed);
 		}
+
+		public void OnCrawl(InputValue value)
+		{
+			CrawlInput(value.isPressed);
+		}
 #endif
 
 
@@ -64,6 +70,11 @@ namespace StarterAssets
 		public void SprintInput(bool newSprintState)
 		{
 			sprint = newSprintState;
+		}
+
+		public void CrawlInput(bool newCrawlState)
+		{
+			crawl = newCrawlState;
 		}
 
 		private void OnApplicationFocus(bool hasFocus)

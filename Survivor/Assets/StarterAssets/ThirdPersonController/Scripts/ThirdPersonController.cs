@@ -2,6 +2,7 @@
 #if ENABLE_INPUT_SYSTEM 
 using UnityEngine.InputSystem;
 #endif
+using System.Collections.Generic;
 
 /* Note: animations are called via the controller for both the character and capsule using animator null checks
  */
@@ -16,10 +17,28 @@ namespace StarterAssets
     {
         [Header("Player")]
         [Tooltip("Move speed of the character in m/s")]
-        public float MoveSpeed = 2.0f;
+        public float MoveSpeed = 5.0f;
 
         [Tooltip("Sprint speed of the character in m/s")]
-        public float SprintSpeed = 5.335f;
+        public float SprintSpeed = 15f;
+
+        [Tooltip("Swim speed of the character in m/s")]
+        public float SwimSpeed = 3.0f;
+
+        [Tooltip("Crawl speed of the character in m/s")]
+        public float CrawlSpeed = 1.0f;
+
+        [Tooltip("Maximum crawl speed when mashing space key")]
+        public float MaxCrawlSpeed = 8.0f;
+
+        [Tooltip("How quickly crawl speed decays when not mashing")]
+        public float CrawlSpeedDecayRate = 5.0f;
+
+        [Tooltip("Time window for measuring space key mash frequency (seconds)")]
+        public float MashTimeWindow = 1.0f;
+
+        [Tooltip("Minimum space presses per second to start moving")]
+        public float MinMashRate = 1.0f;
 
         [Tooltip("How fast the character turns to face movement direction")]
         [Range(0.0f, 0.3f)]
@@ -97,6 +116,7 @@ namespace StarterAssets
         private int _animIDJump;
         private int _animIDFreeFall;
         private int _animIDMotionSpeed;
+        private int _animIDIsCrawling;
 
 #if ENABLE_INPUT_SYSTEM 
         private PlayerInput _playerInput;
@@ -109,6 +129,14 @@ namespace StarterAssets
         private const float _threshold = 0.01f;
 
         private bool _hasAnimator;
+        private bool _isCrawling = false;
+        private bool _isSwimming = false;
+        private bool _crawlInputPressed = false;
+
+        // Space key mashing variables for crawling
+        private List<float> _spacePressTimes = new List<float>();
+        private float _currentCrawlSpeed = 0f;
+        private bool _spacePressed = false;
 
         private bool IsCurrentDeviceMouse
         {
@@ -156,6 +184,7 @@ namespace StarterAssets
         {
             _hasAnimator = TryGetComponent(out _animator);
 
+            HandleCrawlInput();
             JumpAndGravity();
             GroundedCheck();
             Move();
@@ -173,6 +202,104 @@ namespace StarterAssets
             _animIDJump = Animator.StringToHash("Jump");
             _animIDFreeFall = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
+            _animIDIsCrawling = Animator.StringToHash("IsCrawling");
+        }
+
+        private void HandleCrawlInput()
+        {
+            // Check if crawl input was just pressed (toggle crawling)
+            if (_input.crawl && !_crawlInputPressed)
+            {
+                _isCrawling = !_isCrawling;
+                Debug.Log($"[ThirdPersonController] Crawling toggled: {_isCrawling}");
+                
+                // Reset crawl speed when toggling crawling
+                if (_isCrawling)
+                {
+                    _currentCrawlSpeed = CrawlSpeed; // Start at base crawl speed
+                    _spacePressTimes.Clear();
+                }
+                else
+                {
+                    _currentCrawlSpeed = 0f; // Reset when exiting crawl
+                }
+            }
+            
+            // Update the pressed state - reset when key is released
+            if (_input.crawl)
+            {
+                _crawlInputPressed = true;
+            }
+            else
+            {
+                _crawlInputPressed = false;
+            }
+
+            // Handle space key mashing for crawling movement
+            if (_isCrawling)
+            {
+                HandleSpaceMashing();
+            }
+
+            // Update animator - pause animation when crawling but not moving
+            if (_hasAnimator)
+            {
+                _animator.SetBool(_animIDIsCrawling, _isCrawling);
+                _animator.speed = (_isCrawling && _input.move == Vector2.zero) ? 0f : 1f;
+            }
+        }
+
+        private void HandleSpaceMashing()
+        {
+            // If not pressing a direction key, don't move at all
+            if (_input.move == Vector2.zero)
+            {
+                _currentCrawlSpeed = 0f;
+                return;
+            }
+
+            // Check if space key was just pressed
+            if (_input.jump && !_spacePressed)
+            {
+                _spacePressed = true;
+                _spacePressTimes.Add(Time.time);
+                
+                // Remove old press times outside the time window
+                float cutoffTime = Time.time - MashTimeWindow;
+                _spacePressTimes.RemoveAll(time => time < cutoffTime);
+                
+                // Calculate mash rate (presses per second)
+                float mashRate = _spacePressTimes.Count / MashTimeWindow;
+                float maxMashRate = 10f; // Mash rate needed for max speed
+                
+                // Calculate crawl speed based on mash rate
+                if (mashRate >= MinMashRate)
+                {
+                    float boostMultiplier = Mathf.Clamp01((mashRate - MinMashRate) / (maxMashRate - MinMashRate));
+                    float boostedSpeed = Mathf.Lerp(CrawlSpeed, MaxCrawlSpeed, boostMultiplier);
+                    _currentCrawlSpeed = boostedSpeed;
+                }
+                else
+                {
+                    // If not mashing enough, stay at base crawl speed (but only if moving)
+                    _currentCrawlSpeed = CrawlSpeed;
+                }
+                
+                Debug.Log($"[ThirdPersonController] Space mashed! Rate: {mashRate:F1}/s, Speed: {_currentCrawlSpeed:F1}");
+            }
+            else if (!_input.jump)
+            {
+                _spacePressed = false;
+            }
+            
+            // Decay crawl speed when not mashing, but don't go below base crawl speed
+            if (_spacePressTimes.Count == 0 || Time.time - _spacePressTimes[_spacePressTimes.Count - 1] > MashTimeWindow)
+            {
+                _currentCrawlSpeed = Mathf.Lerp(_currentCrawlSpeed, CrawlSpeed, Time.deltaTime * CrawlSpeedDecayRate);
+            }
+
+            // Reset jump so each press is only counted once
+            _input.jump = false;
         }
 
         private void GroundedCheck()
@@ -213,13 +340,31 @@ namespace StarterAssets
 
         private void Move()
         {
-            // set target speed based on move speed, sprint speed and if sprint is pressed
-            float targetSpeed = _input.sprint ? SprintSpeed : MoveSpeed;
+            // set target speed based on move speed, sprint speed, swim speed, crawl speed and current state
+            float targetSpeed;
+            if (_isSwimming)
+            {
+                // When swimming, use swim speed
+                targetSpeed = SwimSpeed;
+            }
+            else if (_isCrawling)
+            {
+                // When crawling, use space key mashing speed instead of normal movement
+                targetSpeed = _currentCrawlSpeed;
+            }
+            else if (_input.sprint)
+            {
+                targetSpeed = SprintSpeed;
+            }
+            else
+            {
+                targetSpeed = MoveSpeed;
+            }
 
             // a simplistic acceleration and deceleration designed to be easy to remove, replace, or iterate upon
 
             // note: Vector2's == operator uses approximation so is not floating point error prone, and is cheaper than magnitude
-            // if there is no input, set the target speed to 0
+            // if there is no input, set the target speed to 0 (including when crawling with no direction input)
             if (_input.move == Vector2.zero) targetSpeed = 0.0f;
 
             // a reference to the players current horizontal velocity
@@ -227,6 +372,13 @@ namespace StarterAssets
 
             float speedOffset = 0.1f;
             float inputMagnitude = _input.analogMovement ? _input.move.magnitude : 1f;
+            
+            // When crawling, we need input direction for movement, but speed comes from space mashing
+            // So we should use input magnitude for direction control, but not for speed
+            if (_isCrawling && _input.move == Vector2.zero)
+            {
+                inputMagnitude = 0f; // No direction input = no movement
+            }
 
             // accelerate or decelerate to target speed
             if (currentHorizontalSpeed < targetSpeed - speedOffset ||
@@ -299,8 +451,8 @@ namespace StarterAssets
                     _verticalVelocity = -2f;
                 }
 
-                // Jump
-                if (_input.jump && _jumpTimeoutDelta <= 0.0f)
+                // Jump (disabled while crawling)
+                if (_input.jump && _jumpTimeoutDelta <= 0.0f && !_isCrawling)
                 {
                     // the square root of H * -2 * G = how much velocity needed to reach desired height
                     _verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
@@ -390,6 +542,19 @@ namespace StarterAssets
                     AudioSource.PlayClipAtPoint(LandingAudioClip, transform.TransformPoint(_controller.center), FootstepAudioVolume);
                 }
             }
+        }
+
+        // Public property to check if player is crawling
+        public bool IsCrawling => _isCrawling;
+
+        // Public property to get current crawl speed
+        public float CurrentCrawlSpeed => _currentCrawlSpeed;
+
+        public bool IsSwimming => _isSwimming;
+
+        public void SetSwimming(bool swimming)
+        {
+            _isSwimming = swimming;
         }
     }
 }
