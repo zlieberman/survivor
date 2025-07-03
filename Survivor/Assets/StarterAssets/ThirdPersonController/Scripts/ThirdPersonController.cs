@@ -47,9 +47,22 @@ namespace StarterAssets
         [Tooltip("Acceleration and deceleration")]
         public float SpeedChangeRate = 10.0f;
 
+        [Header("Crawling Collision")]
+        [Tooltip("Height of the character controller when crawling (should be smaller than standing height)")]
+        public float CrawlHeight = 0.8f;
+
+        [Tooltip("Radius of the character controller when crawling (can be slightly smaller for better fit)")]
+        public float CrawlRadius = 0.3f;
+
         public AudioClip LandingAudioClip;
         public AudioClip[] FootstepAudioClips;
         [Range(0, 1)] public float FootstepAudioVolume = 0.5f;
+
+        [Header("Swimming Audio")]
+        public AudioClip SwimmingAudioClip;
+        [Range(0, 1)] public float SwimmingAudioVolume = 0.5f;
+        [Tooltip("Interval between swimming sounds while moving (seconds)")]
+        [Range(0.5f, 3.0f)] public float SwimmingSoundInterval = 1.5f;
 
         [Space(10)]
         [Tooltip("The height the player can jump")]
@@ -110,6 +123,9 @@ namespace StarterAssets
         private float _jumpTimeoutDelta;
         private float _fallTimeoutDelta;
 
+        // swimming sound timer
+        private float _swimmingSoundTimer = 0f;
+
         // animation IDs
         private int _animIDSpeed;
         private int _animIDGrounded;
@@ -137,6 +153,11 @@ namespace StarterAssets
         private List<float> _spacePressTimes = new List<float>();
         private float _currentCrawlSpeed = 0f;
         private bool _spacePressed = false;
+
+        // Character controller original values for crawling
+        private float _originalCharacterHeight;
+        private float _originalCharacterRadius;
+        private Vector3 _originalCharacterCenter;
 
         private bool IsCurrentDeviceMouse
         {
@@ -178,6 +199,13 @@ namespace StarterAssets
             // reset our timeouts on start
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
+
+            // Store original character controller values
+            _originalCharacterHeight = _controller.height;
+            _originalCharacterRadius = _controller.radius;
+            _originalCharacterCenter = _controller.center;
+            
+            // Movement system will be accessed through static accessor if available
         }
 
         private void Update()
@@ -210,18 +238,42 @@ namespace StarterAssets
             // Check if crawl input was just pressed (toggle crawling)
             if (_input.crawl && !_crawlInputPressed)
             {
-                _isCrawling = !_isCrawling;
-                Debug.Log($"[ThirdPersonController] Crawling toggled: {_isCrawling}");
-                
-                // Reset crawl speed when toggling crawling
                 if (_isCrawling)
                 {
-                    _currentCrawlSpeed = CrawlSpeed; // Start at base crawl speed
-                    _spacePressTimes.Clear();
+                    // Trying to stand up - check if there's enough room
+                    if (CanStandUp())
+                    {
+                        _isCrawling = false;
+                        
+                        // Stand up - restore original character controller values
+                        _controller.height = _originalCharacterHeight;
+                        _controller.radius = _originalCharacterRadius;
+                        _controller.center = _originalCharacterCenter;
+                        
+                        _currentCrawlSpeed = 0f; // Reset when exiting crawl
+                        
+                        Debug.Log($"[ThirdPersonController] Character controller restored to standing - Height: {_originalCharacterHeight}, Radius: {_originalCharacterRadius}");
+                    }
+                    else
+                    {
+                        Debug.Log($"[ThirdPersonController] Cannot stand up - not enough room above player!");
+                        // Don't toggle crawling state, player remains crawling
+                    }
                 }
                 else
                 {
-                    _currentCrawlSpeed = 0f; // Reset when exiting crawl
+                    // Start crawling
+                    _isCrawling = true;
+                    
+                    // Go prone - adjust character controller for crawling
+                    _controller.height = CrawlHeight;
+                    _controller.radius = CrawlRadius;
+                    _controller.center = new Vector3(0, CrawlHeight / 2f, 0);
+                    
+                    _currentCrawlSpeed = CrawlSpeed; // Start at base crawl speed
+                    _spacePressTimes.Clear();
+                    
+                    Debug.Log($"[ThirdPersonController] Character controller adjusted for crawling - Height: {CrawlHeight}, Radius: {CrawlRadius}");
                 }
             }
             
@@ -247,6 +299,81 @@ namespace StarterAssets
                 _animator.SetBool(_animIDIsCrawling, _isCrawling);
                 _animator.speed = (_isCrawling && _input.move == Vector2.zero) ? 0f : 1f;
             }
+        }
+
+        /// <summary>
+        /// Checks if the player has enough room above them to stand up from crawling position
+        /// </summary>
+        /// <returns>True if there's enough room to stand, false if blocked by obstacles</returns>
+        private bool CanStandUp()
+        {
+            // Only exclude the player's own layer - we want to detect ALL obstacles including those on ground layers
+            int playerLayer = gameObject.layer;
+            int playerLayerMask = 1 << playerLayer;
+            
+            // Check everything except the player's own layer
+            int checkLayerMask = ~playerLayerMask;
+            
+            // Calculate positions for the collision check
+            Vector3 currentPosition = transform.position;
+            
+            // Start the check from the current crawling center position
+            Vector3 checkStart = currentPosition + new Vector3(0, CrawlHeight * 0.5f, 0);
+            
+            // End the check at the standing height position
+            Vector3 checkEnd = currentPosition + new Vector3(0, _originalCharacterHeight - 0.1f, 0);
+            
+            // Use the standing radius for accurate collision detection
+            float checkRadius = _originalCharacterRadius * 0.9f;
+            
+            // Perform the main collision check - this will detect the Net and other obstacles
+            bool hasObstacle = Physics.CheckCapsule(
+                checkStart,
+                checkEnd,
+                checkRadius,
+                checkLayerMask,
+                QueryTriggerInteraction.Ignore
+            );
+            
+            // Additional raycast checks for extra precision - multiple rays for better coverage
+            bool hasObstacleRaycast = false;
+            float raycastDistance = _originalCharacterHeight - CrawlHeight;
+            Vector3 rayStartPos = currentPosition + new Vector3(0, CrawlHeight * 0.5f, 0);
+            
+            // Center raycast
+            hasObstacleRaycast |= Physics.Raycast(rayStartPos, Vector3.up, raycastDistance, checkLayerMask, QueryTriggerInteraction.Ignore);
+            
+            // Side raycasts for more thorough detection
+            float sideOffset = _originalCharacterRadius * 0.5f;
+            hasObstacleRaycast |= Physics.Raycast(rayStartPos + new Vector3(sideOffset, 0, 0), Vector3.up, raycastDistance, checkLayerMask, QueryTriggerInteraction.Ignore);
+            hasObstacleRaycast |= Physics.Raycast(rayStartPos + new Vector3(-sideOffset, 0, 0), Vector3.up, raycastDistance, checkLayerMask, QueryTriggerInteraction.Ignore);
+            hasObstacleRaycast |= Physics.Raycast(rayStartPos + new Vector3(0, 0, sideOffset), Vector3.up, raycastDistance, checkLayerMask, QueryTriggerInteraction.Ignore);
+            hasObstacleRaycast |= Physics.Raycast(rayStartPos + new Vector3(0, 0, -sideOffset), Vector3.up, raycastDistance, checkLayerMask, QueryTriggerInteraction.Ignore);
+            
+            // Check if there's any obstacle detected by either method
+            bool canStand = !hasObstacle && !hasObstacleRaycast;
+            
+            // Enhanced debug logging
+            if (hasObstacle || hasObstacleRaycast)
+            {
+                Debug.Log($"[ThirdPersonController] CanStandUp BLOCKED: capsuleHit={hasObstacle}, raycastHit={hasObstacleRaycast} at position {currentPosition}");
+                
+                // Additional debug - find what we're hitting
+                if (Physics.CheckCapsule(checkStart, checkEnd, checkRadius, checkLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    Collider[] hits = Physics.OverlapCapsule(checkStart, checkEnd, checkRadius, checkLayerMask, QueryTriggerInteraction.Ignore);
+                    foreach (var hit in hits)
+                    {
+                        Debug.Log($"[ThirdPersonController] Obstacle detected: {hit.name} on layer {hit.gameObject.layer}");
+                    }
+                }
+            }
+            else
+            {
+                Debug.Log($"[ThirdPersonController] CanStandUp OK: No obstacles detected, can stand up");
+            }
+            
+            return canStand;
         }
 
         private void HandleSpaceMashing()
@@ -299,7 +426,11 @@ namespace StarterAssets
             }
 
             // Reset jump so each press is only counted once
-            _input.jump = false;
+            // Only reset jump input when actually crawling to avoid interfering with input mapping system
+            if (_isCrawling)
+            {
+                _input.jump = false;
+            }
         }
 
         private void GroundedCheck()
@@ -340,16 +471,15 @@ namespace StarterAssets
 
         private void Move()
         {
-            // set target speed based on move speed, sprint speed, swim speed, crawl speed and current state
-            float targetSpeed;
+            // set target speed based on move speed, sprint speed and if sprint is pressed
+            float targetSpeed = 0.0f;
+            
             if (_isSwimming)
             {
-                // When swimming, use swim speed
                 targetSpeed = SwimSpeed;
             }
             else if (_isCrawling)
             {
-                // When crawling, use space key mashing speed instead of normal movement
                 targetSpeed = _currentCrawlSpeed;
             }
             else if (_input.sprint)
@@ -416,7 +546,6 @@ namespace StarterAssets
                 transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
             }
 
-
             Vector3 targetDirection = Quaternion.Euler(0.0f, _targetRotation, 0.0f) * Vector3.forward;
 
             // move the player
@@ -429,6 +558,9 @@ namespace StarterAssets
                 _animator.SetFloat(_animIDSpeed, _animationBlend);
                 _animator.SetFloat(_animIDMotionSpeed, inputMagnitude);
             }
+
+            // Handle swimming sounds while moving
+            HandleSwimmingSounds(inputMagnitude);
         }
 
         private void JumpAndGravity()
@@ -452,7 +584,14 @@ namespace StarterAssets
                 }
 
                 // Jump (disabled while crawling)
-                if (_input.jump && _jumpTimeoutDelta <= 0.0f && !_isCrawling)
+                bool canJump = _input.jump && _jumpTimeoutDelta <= 0.0f;
+                
+                // Check if crawling - disable jumping while crawling
+                bool isCrawling = _isCrawling;
+                
+                canJump = canJump && !isCrawling;
+                
+                if (canJump)
                 {
                     // the square root of H * -2 * G = how much velocity needed to reach desired height
                     _verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
@@ -544,17 +683,94 @@ namespace StarterAssets
             }
         }
 
+        private void PlaySwimmingSound()
+        {
+            if (SwimmingAudioClip != null && _controller != null)
+            {
+                AudioSource.PlayClipAtPoint(SwimmingAudioClip, transform.TransformPoint(_controller.center), SwimmingAudioVolume);
+            }
+        }
+
         // Public property to check if player is crawling
-        public bool IsCrawling => _isCrawling;
+        public bool IsCrawling
+        {
+            get
+            {
+                return _isCrawling;
+            }
+        }
 
         // Public property to get current crawl speed
         public float CurrentCrawlSpeed => _currentCrawlSpeed;
+        
+        /// <summary>
+        /// Forces the player to stand up from crawling if there's enough room above them.
+        /// Used by systems like checkpoints that disable crawling.
+        /// </summary>
+        /// <returns>True if the player was successfully stood up, false if blocked</returns>
+        public bool ForceStandUp()
+        {
+            if (!_isCrawling)
+            {
+                return true; // Already standing
+            }
+            
+            if (CanStandUp())
+            {
+                _isCrawling = false;
+                
+                // Restore original character controller values
+                _controller.height = _originalCharacterHeight;
+                _controller.radius = _originalCharacterRadius;
+                _controller.center = _originalCharacterCenter;
+                
+                _currentCrawlSpeed = 0f; // Reset when exiting crawl
+                
+                Debug.Log($"[ThirdPersonController] Forced to stand up - character controller restored to standing");
+                return true;
+            }
+            else
+            {
+                Debug.LogWarning($"[ThirdPersonController] Cannot force stand up - not enough room above player!");
+                return false;
+            }
+        }
 
-        public bool IsSwimming => _isSwimming;
+        public bool IsSwimming
+        {
+            get
+            {
+                return _isSwimming;
+            }
+        }
 
         public void SetSwimming(bool swimming)
         {
             _isSwimming = swimming;
+            
+            // Reset swimming sound timer when swimming state changes
+            _swimmingSoundTimer = 0f;
+        }
+
+        private void HandleSwimmingSounds(float inputMagnitude)
+        {
+            // Only play swimming sounds if we're swimming and moving
+            if (_isSwimming && inputMagnitude > 0.1f)
+            {
+                _swimmingSoundTimer += Time.deltaTime;
+                
+                // Play swimming sound at intervals
+                if (_swimmingSoundTimer >= SwimmingSoundInterval)
+                {
+                    PlaySwimmingSound();
+                    _swimmingSoundTimer = 0f;
+                }
+            }
+            else
+            {
+                // Reset timer when not swimming or not moving
+                _swimmingSoundTimer = 0f;
+            }
         }
     }
 }

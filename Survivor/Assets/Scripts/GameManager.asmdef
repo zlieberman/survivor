@@ -14,7 +14,8 @@
         "UnityEngine",
         "UnityEngine.CoreModule",
         "UnityEngine.AIModule",
-        "Survivor.Core"
+        "Survivor.Core",
+        "StarterAssets"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

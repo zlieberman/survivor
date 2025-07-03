@@ -3,6 +3,12 @@
 ## Overview
 The swimming system has been updated to use a dedicated `SwimSpeed` field in the `ThirdPersonController` instead of speed multipliers. This allows the `CharacterStatModifier` to directly control swimming speed based on character stats, just like it does for movement and crawl speeds.
 
+## Features
+- Swimming state management
+- Gravity adjustment during swimming
+- Speed control during swimming
+- **Swimming sound effects** (NEW)
+
 ## How It Works
 
 ### 1. ThirdPersonController Changes
@@ -10,6 +16,7 @@ The swimming system has been updated to use a dedicated `SwimSpeed` field in the
 - Added `_isSwimming` state variable
 - Added `SetSwimming(bool)` method
 - Modified `Move()` method to use `SwimSpeed` when swimming
+- **Added swimming audio support** (NEW)
 
 ### 2. CharacterStatModifier Integration
 - Added support for `"swimspeed"` controller field
@@ -21,6 +28,9 @@ The swimming system has been updated to use a dedicated `SwimSpeed` field in the
 - Now simply sets swimming state in ThirdPersonController
 - Lets CharacterStatModifier handle the actual speed value
 - Only manages gravity changes and swimming state
+- Manages water detection and swimming state
+- Integrates with ThirdPersonController via SetSwimming method
+- Handles buoyancy and water physics
 
 ## Configuration
 
@@ -74,6 +84,8 @@ In the `CharacterStatModifier` component, add a new stat modifier:
 1. Set the character's swimming stat (0-100)
 2. The CharacterStatModifier will automatically calculate swim speed
 3. When swimming, the character will use the calculated SwimSpeed value
+4. Swimming sounds will play automatically when entering water
+5. Adjust SwimmingAudioVolume in inspector for desired sound level
 
 ### For NPCs
 1. Set the NPC's swimming stat (0-100)
@@ -112,5 +124,16 @@ character.SetStat("swimming", 75f); // 75% swimming ability
 // This will result in a swim speed of approximately 4.5 m/s
 // (assuming minValue=1, maxValue=6, multiplier=1)
 ```
+
+## Swimming Audio (NEW)
+- **SwimmingAudioClip**: Audio clip to play while swimming and moving
+- **SwimmingAudioVolume**: Volume control for swimming sounds (0-1 range)
+- **SwimmingSoundInterval**: Time between swimming sounds while moving (0.5-3.0 seconds)
+- Sounds play continuously while swimming and moving (similar to footstep sounds)
+- Uses the same pattern as landing and jumping sounds
+
+## Audio Files
+- Swimming sound: `Assets/Audio/Actions/swimming.mp3`
+- GUID: `5c8d56c0633b64053b0bf32ad5be69ca`
 
 The system is now fully integrated and ready to use! 

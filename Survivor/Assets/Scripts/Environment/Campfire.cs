@@ -24,6 +24,11 @@ namespace Survivor.Environment
         public ParticleSystem smokeParticles;
         public AudioSource fireAudioSource;
 
+        [Header("Audio Settings")]
+        [SerializeField] private float audioMaxDistance = 5f;
+        [SerializeField] private float audioMinDistance = 1f;
+        [SerializeField] private float baseAudioVolume = 0.5f;
+
         [Header("Events")]
         public UnityEvent onFireStart;
         public UnityEvent onFireExtinguish;
@@ -54,7 +59,67 @@ namespace Survivor.Environment
             if (fireParticles != null)
                 originalParticleEmission = fireParticles.emission.rateOverTime.constant;
 
+            // Setup audio source for spatial audio
+            SetupAudioSource();
+
             UpdateFireEffects();
+        }
+
+        private void SetupAudioSource()
+        {
+            // Get or create AudioSource
+            if (fireAudioSource == null)
+            {
+                fireAudioSource = GetComponent<AudioSource>();
+                if (fireAudioSource == null)
+                {
+                    fireAudioSource = gameObject.AddComponent<AudioSource>();
+                    Debug.LogWarning("No AudioSource found on campfire, created new one");
+                }
+                else
+                {
+                    Debug.Log("Found existing AudioSource on campfire");
+                }
+            }
+            else
+            {
+                Debug.Log("Using assigned AudioSource from inspector");
+            }
+
+            // Check for multiple AudioSources
+            AudioSource[] allAudioSources = GetComponents<AudioSource>();
+            if (allAudioSources.Length > 1)
+            {
+                Debug.LogWarning($"Multiple AudioSources found on campfire! Count: {allAudioSources.Length}");
+                foreach (var audioSource in allAudioSources)
+                {
+                    Debug.Log($"AudioSource: {audioSource.name}, Position: {audioSource.transform.position}, Clip: {audioSource.clip}");
+                }
+            }
+
+            // Configure spatial audio settings without overriding existing clip and playOnAwake
+            fireAudioSource.spatialBlend = 1f; // Full 3D audio
+            fireAudioSource.maxDistance = audioMaxDistance;
+            fireAudioSource.minDistance = audioMinDistance;
+            fireAudioSource.rolloffMode = AudioRolloffMode.Linear;
+            fireAudioSource.dopplerLevel = 0f; // Disable doppler for fire sounds
+            fireAudioSource.loop = true;
+            
+            // Don't override playOnAwake - let the prefab settings handle this
+            // fireAudioSource.playOnAwake = false;
+            
+            // Set initial volume
+            fireAudioSource.volume = baseAudioVolume;
+            
+            // Ensure AudioSource position matches campfire position
+            if (fireAudioSource.transform.position != transform.position)
+            {
+                Debug.LogWarning($"AudioSource position ({fireAudioSource.transform.position}) doesn't match campfire position ({transform.position}). Fixing...");
+                fireAudioSource.transform.position = transform.position;
+            }
+            
+            Debug.Log($"Campfire audio configured - MaxDistance: {audioMaxDistance}, MinDistance: {audioMinDistance}, Volume: {baseAudioVolume}");
+            Debug.Log($"Campfire position: {transform.position}, AudioSource position: {fireAudioSource.transform.position}");
         }
 
         private void Update()
@@ -89,15 +154,36 @@ namespace Survivor.Environment
                 smokeParticles.gameObject.SetActive(isLit);
             }
 
-            // Update audio
+            // Update audio - use a multiplier that doesn't interfere with spatial positioning
             if (fireAudioSource != null)
             {
-                if (isLit && !fireAudioSource.isPlaying)
-                    fireAudioSource.Play();
-                else if (!isLit && fireAudioSource.isPlaying)
-                    fireAudioSource.Stop();
-
-                fireAudioSource.volume = fuelAmount * 0.01f;
+                // Only control volume, let the AudioSource handle playback based on prefab settings
+                if (isLit)
+                {
+                    // Calculate volume based on fuel amount, but maintain spatial audio properties
+                    float fuelMultiplier = Mathf.Clamp01(fuelAmount / 100f);
+                    float newVolume = baseAudioVolume * fuelMultiplier;
+                    fireAudioSource.volume = newVolume;
+                    
+                    // Debug info (only log occasionally to avoid spam)
+                    if (Time.frameCount % 60 == 0) // Log every 60 frames
+                    {
+                        Debug.Log($"Campfire audio - Fuel: {fuelAmount}, Volume: {newVolume}, Playing: {fireAudioSource.isPlaying}, Position: {transform.position}");
+                    }
+                }
+                else
+                {
+                    // Mute the audio when fire is extinguished
+                    fireAudioSource.volume = 0f;
+                    if (Time.frameCount % 60 == 0)
+                    {
+                        Debug.Log("Campfire audio muted - fire extinguished");
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("FireAudioSource is null in UpdateFireEffects!");
             }
         }
 
@@ -146,6 +232,10 @@ namespace Survivor.Environment
             // Draw heat radius in editor
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(transform.position, heatRadius);
+            
+            // Draw audio radius in editor
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, audioMaxDistance);
         }
     }
 } 

@@ -1,7 +1,7 @@
 # Crawling Mechanic Implementation
 
 ## Overview
-This implementation adds a crawling mechanic to the player character that can be toggled by pressing the C key. When crawling, the player moves at a slower speed and the `IsCrawling` animation parameter is set to true.
+This implementation adds a crawling mechanic to the player character that can be toggled by pressing the C key. When crawling, the player moves at a slower speed, the `IsCrawling` animation parameter is set to true, and the character controller's collision box is adjusted to allow crawling under small surfaces.
 
 ## Features
 - **Toggle Crawling**: Press C to start/stop crawling
@@ -9,6 +9,8 @@ This implementation adds a crawling mechanic to the player character that can be
 - **Animation Integration**: Uses the existing `IsCrawling` animation parameter
 - **Jump Disabled**: Players cannot jump while crawling
 - **Smooth Transitions**: Movement speed changes are smoothly interpolated
+- **Collision Box Adjustment**: Character controller height and center are adjusted when crawling to allow fitting under small surfaces
+- **Space Key Mashing**: Players can mash the space key while crawling to move faster
 
 ## Implementation Details
 
@@ -25,12 +27,25 @@ This implementation adds a crawling mechanic to the player character that can be
 
 3. **ThirdPersonController.cs**
    - Added `CrawlSpeed` field (default: 1.0f)
+   - Added `MaxCrawlSpeed` field (default: 8.0f) for space key mashing
+   - Added `CrawlSpeedDecayRate` field for speed decay
+   - Added `MashTimeWindow` and `MinMashRate` fields for space mashing
+   - Added `CrawlHeight` field (default: 0.8f) for collision box height when crawling
+   - Added `CrawlRadius` field (default: 0.3f) for collision box radius when crawling
    - Added crawling state management (`_isCrawling`, `_crawlInputPressed`)
    - Added `_animIDIsCrawling` animation parameter hash
+   - Added character controller original value storage
+   - Modified `HandleCrawlInput()` method to adjust character controller collision box
    - Modified `Move()` method to handle crawl speed
-   - Added `HandleCrawlInput()` method for input processing
+   - Added `HandleSpaceMashing()` method for space key mashing mechanics
    - Disabled jumping while crawling
-   - Added public `IsCrawling` property
+   - Added public `IsCrawling` and `CurrentCrawlSpeed` properties
+
+4. **Player.prefab** and **PlayerCapsule.prefab**
+   - Added `CrawlHeight` and `CrawlRadius` settings to ThirdPersonController components
+
+5. **CrawlCollisionTest.cs** (New)
+   - Debug script to verify crawling collision adjustment is working properly
 
 ### Animation Controller
 The implementation expects the animation controller to have:
@@ -56,10 +71,10 @@ Make sure your animation controller includes:
 - Proper transitions between walking/running and crawling states
 
 ### 4. Testing
-Add the `CrawlTest` component to your player for debugging:
+Add the `CrawlCollisionTest` component to your player for debugging:
 ```csharp
 // Add to player GameObject
-var crawlTest = player.AddComponent<CrawlTest>();
+var crawlTest = player.AddComponent<CrawlCollisionTest>();
 ```
 
 ## Usage
@@ -68,12 +83,17 @@ var crawlTest = player.AddComponent<CrawlTest>();
 1. **Start Crawling**: Press C key
 2. **Stop Crawling**: Press C key again
 3. **Movement**: Use WASD to move while crawling (slower speed)
-4. **Jumping**: Disabled while crawling
+4. **Space Key Mashing**: Mash space key while crawling to move faster
+5. **Jumping**: Disabled while crawling
+6. **Collision**: Character controller automatically adjusts to fit under small surfaces
 
 ### Code Access
 ```csharp
 // Check if player is crawling
 bool isCrawling = thirdPersonController.IsCrawling;
+
+// Get current crawl speed
+float crawlSpeed = thirdPersonController.CurrentCrawlSpeed;
 
 // Manually set crawl input (for testing)
 starterAssetsInputs.crawl = true;
@@ -84,7 +104,23 @@ starterAssetsInputs.crawl = true;
 ### Crawl Speed
 Adjust the crawl speed in the ThirdPersonController component:
 ```csharp
-public float CrawlSpeed = 1.0f; // Default crawl speed
+public float CrawlSpeed = 1.0f; // Base crawl speed
+public float MaxCrawlSpeed = 8.0f; // Maximum speed when mashing space
+```
+
+### Crawling Collision
+Adjust the collision box dimensions when crawling:
+```csharp
+public float CrawlHeight = 0.8f; // Height of character controller when crawling
+public float CrawlRadius = 0.3f; // Radius of character controller when crawling
+```
+
+### Space Key Mashing
+Configure the space key mashing mechanics:
+```csharp
+public float CrawlSpeedDecayRate = 5.0f; // How quickly speed decays
+public float MashTimeWindow = 1.0f; // Time window for measuring mash rate
+public float MinMashRate = 1.0f; // Minimum presses per second to start moving
 ```
 
 ### Input Binding
@@ -122,20 +158,27 @@ To change the input key, modify the PlayerInputActions.inputactions file:
    - Verify the `HandleCrawlInput()` method is being called
    - Check console for debug messages
 
+4. **Collision box not adjusting**
+   - Verify `CrawlHeight` and `CrawlRadius` are set in ThirdPersonController
+   - Check that character controller is properly referenced
+   - Use CrawlCollisionTest script to debug collision box changes
+
 ### Debug Information
-Enable debug logging in the CrawlTest component to see:
+Enable debug logging in the CrawlCollisionTest component to see:
 - Current crawl input state
 - IsCrawling controller state
 - Animation parameter state
+- Character controller dimensions
+- Visual collision box representation
 
 ## Future Enhancements
 
 Potential improvements to consider:
-- **Crawl Height**: Adjust character controller height while crawling
 - **Crawl Camera**: Lower camera position while crawling
 - **Crawl Audio**: Different footstep sounds while crawling
 - **Crawl Stamina**: Add stamina cost for crawling
-- **Crawl Collision**: Different collision detection while crawling
+- **Crawl Animation**: More detailed crawling animations
+- **Crawl Physics**: Different physics behavior while crawling
 
 ## Dependencies
 - Unity Input System

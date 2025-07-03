@@ -2242,14 +2242,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MoveSpeed: 5
   SprintSpeed: 15
+  SwimSpeed: 3
   CrawlSpeed: 1
   MaxCrawlSpeed: 8
-  SwimSpeed: 3
   CrawlSpeedDecayRate: 120
   MashTimeWindow: 1
   MinMashRate: 1
   RotationSmoothTime: 0.12
   SpeedChangeRate: 10
+  CrawlHeight: 0.5
+  CrawlRadius: 0.3
   LandingAudioClip: {fileID: 8300000, guid: ff697d3070687ce4583faa0561a145a2, type: 3}
   FootstepAudioClips:
   - {fileID: 8300000, guid: 72f526a6a9890f643a88e85a61c86c8a, type: 3}
@@ -2263,6 +2265,9 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 274649b0e221539409070ebf6c18918b, type: 3}
   - {fileID: 8300000, guid: a3194b8bbc96ef84fab1f98f4b7dae3e, type: 3}
   FootstepAudioVolume: 0.3
+  SwimmingAudioClip: {fileID: 8300000, guid: 5c8d56c0633b64053b0bf32ad5be69ca, type: 3}
+  SwimmingAudioVolume: 0.5
+  SwimmingSoundInterval: 1.5
   JumpHeight: 1.2
   Gravity: -15
   JumpTimeout: 0.3
@@ -2474,7 +2479,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e11b9ae2909454aef951b266565b899a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  waterSpeedMultiplier: 0.7
   swimGravity: -2
   swimDepthThreshold: 1.5
   buoyancyCoeff: 3
@@ -2489,6 +2493,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 16
   showDebug: 0
+  forceDisableCrest: 0
 --- !u!114 &-2502661433512250173
 MonoBehaviour:
   m_ObjectHideFlags: 0

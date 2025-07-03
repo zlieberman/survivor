@@ -185,11 +185,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MoveSpeed: 4
   SprintSpeed: 6
+  CrawlSpeed: 1
+  MaxCrawlSpeed: 8
+  CrawlSpeedDecayRate: 5
+  MashTimeWindow: 1
+  MinMashRate: 1
   RotationSmoothTime: 0.12
   SpeedChangeRate: 10
+  CrawlHeight: 0.8
+  CrawlRadius: 0.3
   LandingAudioClip: {fileID: 0}
   FootstepAudioClips: []
   FootstepAudioVolume: 0.5
+  SwimmingAudioClip: {fileID: 8300000, guid: 5c8d56c0633b64053b0bf32ad5be69ca, type: 3}
+  SwimmingAudioVolume: 0.5
+  SwimmingSoundInterval: 1.5
   JumpHeight: 1.2
   Gravity: -15
   JumpTimeout: 0.5

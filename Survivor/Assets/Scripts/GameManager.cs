@@ -13,6 +13,7 @@ using Survivor.UI;
 using Survivor.Interactables;
 using Survivor.Core.Interaction;
 using Survivor.Core;
+using StarterAssets;
 
 public class GameManager : MonoBehaviour
 {
